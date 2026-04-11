@@ -1,862 +1,844 @@
-import { useState, useEffect, useRef } from 'react';
-import Handlebars from 'handlebars';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { resumeAPI } from '../services/api';
 import {
-  HiOutlineUpload, HiOutlinePencil, HiOutlineSparkles, HiOutlineDownload,
-  HiOutlineTrash, HiOutlinePlus, HiOutlineEye, HiOutlineDocumentText,
-  HiOutlineLightningBolt, HiOutlineCheckCircle, HiOutlineExclamation
+  HiOutlineDownload, HiOutlineSave, HiOutlinePlus, HiOutlineTrash,
+  HiOutlineDocumentText, HiOutlineChevronDown, HiX
 } from 'react-icons/hi';
+import {
+  generateTemplateOne,
+  generateTemplateTwo,
+  generateTemplateThree,
+  generateTemplateFour,
+  generateTemplateFive
+} from '../utils/resumeTemplates';
 import './ResumeBuilder.css';
 
-const targetRoles = [
-  'SDE-1', 'SDE-2', 'Backend Engineer', 'Frontend Engineer',
-  'Full Stack Developer', 'Data Scientist', 'ML Engineer',
-  'DevOps Engineer', 'Data Analyst', 'Product Manager'
-];
-
-const templates = [
-  { id: 'modern', name: 'Olivia Sanchez', image: 'https://placehold.co/120x160?text=Olivia' },
-  { id: 'minimalist', name: 'Sebastian Student', image: 'https://placehold.co/120x160?text=Minimalist' },
-  { id: 'corporate', name: 'Henrietta Mitchell', image: 'https://placehold.co/120x160?text=Corporate' },
-  { id: 'tech', name: 'Sebastian Accountant', image: 'https://placehold.co/120x160?text=Tech' },
-  { id: 'creative', name: 'Daniel Gallego', image: 'https://placehold.co/120x160?text=Creative' },
-  { id: 'custom', name: 'Custom Template', image: 'https://placehold.co/120x160?text=Custom+CSS' }
-];
-
-const emptyResume = {
+const emptyResumeData = {
   contact: { name: '', email: '', phone: '', linkedin: '', github: '', portfolio: '', location: '' },
   summary: '',
   experience: [],
   education: [],
   projects: [],
-  skills: { languages: [], frameworks: [], tools: [], databases: [], other: [] },
-  certifications: [],
-  customCss: ''
+  skills: { languages: [], frameworks: [], tools: [], databases: [], other: [] }
 };
 
-/* ──────────────────────────────────────────────────────────────
-   Live HTML Resume Renderer — renders resume data as a clean,
-   professional A4‑style page INSTANTLY in the browser.
-   No external LaTeX service needed for preview.
-   ────────────────────────────────────────────────────────────── */
-const TemplateRenderer = ({ sections }) => {
-  const { contact, summary, experience, education, projects, skills, certifications } = sections || {};
-  const allSkills = [
-    ...(skills?.languages || []),
-    ...(skills?.frameworks || []),
-    ...(skills?.tools || []),
-    ...(skills?.databases || []),
-    ...(skills?.other || [])
-  ].filter(Boolean);
+const templatesList = [
+  { id: 1, name: 'Professional Grey', image: '/template1.png' },
+  { id: 2, name: 'Student Split', image: '/template2.png' },
+  { id: 3, name: 'Minimalist Lines', image: '/template3.png' },
+  { id: 4, name: 'Corporate Clean', image: '/template4.png' },
+  { id: 5, name: 'Blue Tinted', image: '/template5.png' },
+];
 
-  return (
-    <div className="live-resume-page">
-      {/* Header */}
-      <header className="lr-header">
-        <h1>{contact?.name || 'Your Name'}</h1>
-        <div className="lr-contact-row">
-          {[contact?.email, contact?.phone, contact?.location, contact?.linkedin, contact?.github, contact?.portfolio]
-            .filter(Boolean)
-            .map((item, i) => <span key={i}>{item}</span>)}
-        </div>
-      </header>
+export default function ResumeBuilder() {
+  // --- Core State ---
+  const [resumeData, setResumeData] = useState(emptyResumeData);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(1);
+  const [resumeId, setResumeId] = useState(null);
+  const [resumeName, setResumeName] = useState('');
 
-      {/* Summary */}
-      {summary && (
-        <section className="lr-section">
-          <h2>Summary</h2>
-          <hr className="lr-rule" />
-          <p className="lr-summary">{summary}</p>
-        </section>
-      )}
+  // --- PDF Preview State ---
+  const [pdfBlobUrl, setPdfBlobUrl] = useState('');
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [previewError, setPreviewError] = useState('');
 
-      {/* Experience */}
-      {experience?.length > 0 && (
-        <section className="lr-section">
-          <h2>Experience</h2>
-          <hr className="lr-rule" />
-          {experience.map((exp, i) => (
-            <div key={i} className="lr-entry">
-              <div className="lr-entry-header">
-                <div><strong>{exp.title}</strong>{exp.company ? `, ${exp.company}` : ''}{exp.location ? ` — ${exp.location}` : ''}</div>
-                <div className="lr-date">{exp.startDate}{exp.endDate ? ` – ${exp.endDate}` : exp.current ? ' – Present' : ''}</div>
-              </div>
-              {exp.bullets?.filter(Boolean).length > 0 && (
-                <ul className="lr-bullets">
-                  {exp.bullets.filter(Boolean).map((b, j) => <li key={j}>{b}</li>)}
-                </ul>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* Education */}
-      {education?.length > 0 && (
-        <section className="lr-section">
-          <h2>Education</h2>
-          <hr className="lr-rule" />
-          {education.map((edu, i) => (
-            <div key={i} className="lr-entry">
-              <div className="lr-entry-header">
-                <div><strong>{edu.degree}</strong>{edu.institution ? `, ${edu.institution}` : ''}{edu.location ? ` — ${edu.location}` : ''}</div>
-                <div className="lr-date">{edu.startDate}{edu.endDate ? ` – ${edu.endDate}` : ''}{edu.gpa ? `  |  GPA: ${edu.gpa}` : ''}</div>
-              </div>
-              {edu.relevant && <p className="lr-relevant">{edu.relevant}</p>}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* Projects */}
-      {projects?.length > 0 && (
-        <section className="lr-section">
-          <h2>Projects</h2>
-          <hr className="lr-rule" />
-          {projects.map((proj, i) => (
-            <div key={i} className="lr-entry">
-              <div className="lr-entry-header">
-                <div>
-                  <strong>{proj.name}</strong>
-                  {proj.techStack?.filter(Boolean).length > 0 && (
-                    <span className="lr-tech"> [{proj.techStack.filter(Boolean).join(', ')}]</span>
-                  )}
-                </div>
-                {(proj.link || proj.github) && (
-                  <div className="lr-date">{proj.link || proj.github}</div>
-                )}
-              </div>
-              {proj.description && <p className="lr-desc">{proj.description}</p>}
-              {proj.bullets?.filter(Boolean).length > 0 && (
-                <ul className="lr-bullets">
-                  {proj.bullets.filter(Boolean).map((b, j) => <li key={j}>{b}</li>)}
-                </ul>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* Skills  */}
-      {allSkills.length > 0 && (
-        <section className="lr-section">
-          <h2>Skills</h2>
-          <hr className="lr-rule" />
-          <div className="lr-skills-grid">
-            {skills?.languages?.length > 0 && <div><strong>Languages:</strong> {skills.languages.join(', ')}</div>}
-            {skills?.frameworks?.length > 0 && <div><strong>Frameworks:</strong> {skills.frameworks.join(', ')}</div>}
-            {skills?.tools?.length > 0 && <div><strong>Tools:</strong> {skills.tools.join(', ')}</div>}
-            {skills?.databases?.length > 0 && <div><strong>Databases:</strong> {skills.databases.join(', ')}</div>}
-            {skills?.other?.length > 0 && <div><strong>Other:</strong> {skills.other.join(', ')}</div>}
-          </div>
-        </section>
-      )}
-
-      {/* Certifications */}
-      {certifications?.filter(Boolean).length > 0 && (
-        <section className="lr-section">
-          <h2>Certifications</h2>
-          <hr className="lr-rule" />
-          <ul className="lr-bullets">
-            {certifications.filter(Boolean).map((c, i) => <li key={i}>{c}</li>)}
-          </ul>
-        </section>
-      )}
-    </div>
-  );
-};
-
-const ResumeBuilder = () => {
-  const [resumes, setResumes] = useState([]);
-  const [activeResume, setActiveResume] = useState(null);
-  const [sections, setSections] = useState(emptyResume);
-  const [targetRole, setTargetRole] = useState('SDE-1');
-  const [template, setTemplate] = useState('modern');
-  const [latexTemplate, setLatexTemplate] = useState('');
-  const [title, setTitle] = useState('My Resume');
-  const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
+  // --- UI State ---
+  const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState('contact');
-  const [view, setView] = useState('editor'); // editor | preview | analysis
-  const [previewMode, setPreviewMode] = useState('template'); // pdf | template
   const [skillInput, setSkillInput] = useState('');
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveNameInput, setSaveNameInput] = useState('');
+  const [savedResumes, setSavedResumes] = useState([]);
+  const [showResumeDropdown, setShowResumeDropdown] = useState(false);
+  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(50);
+  const [isResizing, setIsResizing] = useState(false);
 
-  const mergeWithEmpty = (data) => ({
-    ...emptyResume,
-    ...data,
-    contact: { ...emptyResume.contact, ...(data?.contact || {}) },
-    skills: { ...emptyResume.skills, ...(data?.skills || {}) },
-    experience: data?.experience || [],
-    education: data?.education || [],
-    projects: data?.projects || []
-  });
+  const debounceTimer = useRef(null);
+  const prevBlobUrl = useRef('');
+  const dropdownRef = useRef(null);
 
+  // --- Fetch saved resumes on mount ---
   useEffect(() => {
-    loadResumes();
+    fetchSavedResumes();
   }, []);
 
-  const loadResumes = async () => {
+  const fetchSavedResumes = async () => {
     try {
-      const res = await resumeAPI.getAll();
-      setResumes(res.data);
-    } catch (err) { /* empty */ }
-  };
-
-  const createNewResume = async () => {
-    setLoading(true);
-    try {
-      const newTitle = 'New Resume';
-      const res = await resumeAPI.create({ title: newTitle, targetRole: 'SDE-1', sections: emptyResume, template: 'modern' });
-      setActiveResume(res.data);
-      setSections(mergeWithEmpty(res.data.sections));
-      setTargetRole('SDE-1');
-      setTemplate('modern');
-      setLatexTemplate('');
-      setTitle(newTitle);
-      setAnalysis(null);
-      await loadResumes();
+      setLoadingResumes(true);
+      const res = await resumeAPI.getList();
+      setSavedResumes(res.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create resume');
+      console.error('Failed to fetch resumes:', err);
     } finally {
-      setLoading(false);
+      setLoadingResumes(false);
     }
   };
 
+  // --- Close dropdown on outside click ---
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowResumeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // --- Generate LaTeX ---
+  const generateLatex = useCallback(() => {
+    switch (selectedTemplateId) {
+      case 1: return generateTemplateOne(resumeData);
+      case 2: return generateTemplateTwo(resumeData);
+      case 3: return generateTemplateThree(resumeData);
+      case 4: return generateTemplateFour(resumeData);
+      case 5: return generateTemplateFive(resumeData);
+      default: return generateTemplateOne(resumeData);
+    }
+  }, [resumeData, selectedTemplateId]);
+
+  // --- Check if resume has any content ---
+  const hasContent = useCallback(() => {
+    const c = resumeData.contact;
+    const hasContact = c.name || c.email || c.phone;
+    const hasSummary = resumeData.summary;
+    const hasExperience = resumeData.experience.length > 0;
+    const hasEducation = resumeData.education.length > 0;
+    const hasProjects = resumeData.projects.length > 0;
+    const hasSkills = Object.values(resumeData.skills).some(arr => arr.length > 0);
+    return hasContact || hasSummary || hasExperience || hasEducation || hasProjects || hasSkills;
+  }, [resumeData]);
+
+  // --- Compile PDF via backend proxy (avoids CORS) ---
+  const compilePdf = async (latexString) => {
+    if (!latexString.trim()) return;
+    setIsCompiling(true);
+    setPreviewError('');
+    try {
+      const token = sessionStorage.getItem('prephelp_token');
+      const res = await fetch('http://localhost:5000/api/resume/compile-latex', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ latex: latexString })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `Compilation failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      // Revoke previous Object URL to prevent memory leaks
+      if (prevBlobUrl.current) {
+        URL.revokeObjectURL(prevBlobUrl.current);
+      }
+      const url = URL.createObjectURL(blob);
+      prevBlobUrl.current = url;
+      setPdfBlobUrl(url);
+    } catch (e) {
+      console.error('Live Preview Compilation Error:', e);
+      setPreviewError(e.message || 'Failed to compile PDF');
+      toast.error('PDF compilation failed. Check your resume data.');
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
+  // --- Manual Compile ---
+  const handleManualCompile = () => {
+    if (!hasContent()) {
+      toast.error('Add some content first before compiling.');
+      return;
+    }
+    const latex = generateLatex();
+    if (latex) compilePdf(latex);
+  };
+
+  // --- Cleanup Object URL on unmount ---
+  useEffect(() => {
+    return () => {
+      if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
+    };
+  }, []);
+
+  // --- Resizer Logic ---
+  const handleMouseDown = useCallback((e) => {
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      const newWidth = (e.clientX / window.innerWidth) * 100;
+      if (newWidth > 20 && newWidth < 80) {
+        setLeftWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // --- Save Resume ---
+  const handleSave = () => {
+    setSaveNameInput(resumeName || '');
+    setShowSaveModal(true);
+  };
+
+  const confirmSave = async () => {
+    const name = saveNameInput.trim();
+    if (!name) {
+      toast.error('Please enter a resume name');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await resumeAPI.save({
+        _id: resumeId,
+        resumeData,
+        selectedTemplateId,
+        resumeName: name
+      });
+      if (res.data && res.data._id) {
+        setResumeId(res.data._id);
+        setResumeName(name);
+      }
+      toast.success(`Resume "${name}" saved successfully!`);
+      setShowSaveModal(false);
+      fetchSavedResumes(); // refresh dropdown
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save resume. Please ensure you are logged in.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Load Resume ---
   const loadResume = async (id) => {
     try {
       const res = await resumeAPI.getOne(id);
-      const r = res.data;
-      setActiveResume(r);
-      setSections(mergeWithEmpty(r.sections));
-      setTargetRole(r.targetRole || 'SDE-1');
-      setTemplate(r.template || 'modern');
-      setLatexTemplate(r.latexTemplate || '');
-      setTitle(r.title || 'My Resume');
-      setAnalysis(r.aiAnalysis?.overallScore ? r.aiAnalysis : null);
-      setPreviewMode('template'); // ALWAYS show live template by default
-      setView('editor');
+      const data = res.data;
+      setResumeId(data._id);
+      setResumeName(data.resumeName || data.title || '');
+      setResumeData(data.resumeData || emptyResumeData);
+      setSelectedTemplateId(data.selectedTemplateId || 1);
+      setShowResumeDropdown(false);
+      toast.success(`Loaded "${data.resumeName || data.title}"`);
     } catch (err) {
-      alert('Failed to load resume');
+      console.error(err);
+      toast.error('Failed to load resume');
     }
   };
 
-  const saveResume = async () => {
-    if (!activeResume) return;
-    setLoading(true);
-    try {
-      await resumeAPI.update(activeResume._id, { sections, targetRole, template, title, latexTemplate });
-    } catch (err) {
-      alert('Failed to save');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const analyzeResume = async (force = false) => {
-    if (!activeResume) return;
-
-    // If analysis already loaded and not forcing, just show it
-    if (!force && analysis) {
-      setView('analysis');
-      return;
-    }
-
-    setAnalyzing(true);
-    try {
-      await resumeAPI.update(activeResume._id, { sections, targetRole });
-      const res = await resumeAPI.analyze(activeResume._id);
-      setAnalysis(res.data.analysis);
-      setView('analysis');
-    } catch (err) {
-      alert(err.response?.data?.message || 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const optimizeResume = async () => {
-    if (!activeResume) return;
-    setOptimizing(true);
-    try {
-      const res = await resumeAPI.optimize(activeResume._id);
-      if (res.data.resume?.sections) {
-        setSections(res.data.resume.sections);
-      }
-    } catch (err) {
-      alert('Optimization failed');
-    } finally {
-      setOptimizing(false);
-    }
-  };
-
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('resume', file);
-      formData.append('targetRole', targetRole);
-      const res = await resumeAPI.upload(formData);
-      setActiveResume(res.data);
-      setSections(mergeWithEmpty(res.data.sections));
-      setLatexTemplate(res.data.latexTemplate || '');
-      setPreviewMode('template');
-      setView('preview');
-      await loadResumes();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Upload & Parsing failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteResume = async (id) => {
-    if (!window.confirm('Delete this resume?')) return;
+  // --- Delete Resume ---
+  const handleDeleteResume = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this resume permanently?')) return;
     try {
       await resumeAPI.delete(id);
-      if (activeResume?._id === id) {
-        setActiveResume(null);
-        setSections(emptyResume);
-        setAnalysis(null);
+      toast.success('Resume deleted');
+      if (resumeId === id) {
+        setResumeId(null);
+        setResumeName('');
+        setResumeData(emptyResumeData);
       }
-      await loadResumes();
+      fetchSavedResumes();
     } catch (err) {
-      console.error('Delete failed error: ', err.response || err);
-      alert('Delete failed: ' + (err.response?.data?.message || err.message));
+      toast.error('Failed to delete resume');
     }
   };
 
-  const updateContact = (field, value) => {
-    setSections(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
+  // --- Download PDF ---
+  const handleDownload = async () => {
+    if (!resumeData.contact.name?.trim()) {
+      toast.error('Please enter at least your name before downloading');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const latexString = generateLatex();
+      if (!latexString.trim()) {
+        toast.error('Template is empty. Please add some content first.');
+        return;
+      }
+      const token = sessionStorage.getItem('prephelp_token');
+      const res = await fetch('http://localhost:5000/api/resume/compile-latex', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ latex: latexString })
+      });
+      if (!res.ok) throw new Error('Download Compilation Failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${resumeData.contact.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Resume downloaded!');
+    } catch (e) {
+      console.error('Download Compilation Error:', e);
+      toast.error('Failed to download resume. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const addExperience = () => {
-    setSections(prev => ({
-      ...prev,
-      experience: [...prev.experience, { title: '', company: '', location: '', startDate: '', endDate: '', current: false, bullets: [''] }]
-    }));
+  // --- New Resume ---
+  const handleNewResume = () => {
+    setResumeId(null);
+    setResumeName('');
+    setResumeData(emptyResumeData);
+    setSelectedTemplateId(1);
+    if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
+    setPdfBlobUrl('');
+    setPreviewError('');
+    toast.success('New resume started');
   };
 
-  const addEducation = () => {
-    setSections(prev => ({
-      ...prev,
-      education: [...prev.education, { degree: '', institution: '', location: '', startDate: '', endDate: '', gpa: '', relevant: '' }]
-    }));
-  };
-
-  const addProject = () => {
-    setSections(prev => ({
-      ...prev,
-      projects: [...prev.projects, { name: '', description: '', techStack: [], link: '', github: '', bullets: [''] }]
-    }));
-  };
+  // --- Form Helpers ---
+  const updateContact = (field, value) => setResumeData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
+  const addExperience = () => setResumeData(prev => ({ ...prev, experience: [...prev.experience, { title: '', company: '', location: '', startDate: '', endDate: '', current: false, bullets: [''] }] }));
+  const addEducation = () => setResumeData(prev => ({ ...prev, education: [...prev.education, { degree: '', institution: '', location: '', startDate: '', endDate: '', gpa: '', relevant: '' }] }));
+  const addProject = () => setResumeData(prev => ({ ...prev, projects: [...prev.projects, { name: '', description: '', techStack: [], link: '', github: '', bullets: [''] }] }));
 
   const addSkill = (category) => {
     if (!skillInput.trim()) return;
-    setSections(prev => ({
-      ...prev,
-      skills: { ...prev.skills, [category]: [...(prev.skills[category] || []), skillInput.trim()] }
-    }));
+    setResumeData(prev => ({ ...prev, skills: { ...prev.skills, [category]: [...(prev.skills[category] || []), skillInput.trim()] } }));
     setSkillInput('');
   };
-
-  const removeSkill = (category, index) => {
-    setSections(prev => ({
-      ...prev,
-      skills: { ...prev.skills, [category]: prev.skills[category].filter((_, i) => i !== index) }
-    }));
-  };
-
-  const downloadPDF = () => {
-    window.print();
-  };
-
-  const overallScore = analysis?.overallScore || 0;
-  const atsScore = analysis?.atsScore || 0;
-  const scoreColor = (s) => s >= 70 ? '#00b894' : s >= 40 ? '#fdcb6e' : '#ff6b6b';
+  const removeSkill = (category, index) => setResumeData(prev => ({ ...prev, skills: { ...prev.skills, [category]: prev.skills[category].filter((_, i) => i !== index) } }));
 
   return (
-    <div className="page resume-page" id="resume-page">
-      <div className="page-header">
-        <h1>Resume Builder</h1>
-        <p>Create, optimize, and download ATS-ready resumes with AI</p>
+    <div className="page resume-page">
+      {/* ═══════ PAGE HEADER ═══════ */}
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>Resume Builder</h1>
+          <p>{resumeName ? `Editing: ${resumeName}` : 'Deterministic LaTeX Resume Generation'}</p>
+        </div>
+        <div className="resume-toolbar-actions">
+          {/* My Resumes Dropdown */}
+          <div className="resume-dropdown-container" ref={dropdownRef}>
+            <button
+              className="btn btn-secondary"
+              id="my-resumes-btn"
+              onClick={() => setShowResumeDropdown(!showResumeDropdown)}
+            >
+              <HiOutlineDocumentText /> My Resumes <HiOutlineChevronDown />
+            </button>
+            {showResumeDropdown && (
+              <div className="resume-dropdown animate-fade-in-up" id="resume-dropdown">
+                <div className="resume-dropdown-header">
+                  <span>Saved Resumes</span>
+                  <button className="btn btn-sm btn-primary" onClick={handleNewResume}>
+                    <HiOutlinePlus /> New
+                  </button>
+                </div>
+                {loadingResumes ? (
+                  <div className="resume-dropdown-loading">
+                    <div className="loader" style={{ width: 20, height: 20 }}></div>
+                  </div>
+                ) : savedResumes.length === 0 ? (
+                  <div className="resume-dropdown-empty">
+                    No saved resumes yet
+                  </div>
+                ) : (
+                  <div className="resume-dropdown-list">
+                    {savedResumes.map(r => (
+                      <div
+                        key={r._id}
+                        className={`resume-dropdown-item ${resumeId === r._id ? 'active' : ''}`}
+                        onClick={() => loadResume(r._id)}
+                      >
+                        <div className="resume-dropdown-item-info">
+                          <HiOutlineDocumentText />
+                          <div>
+                            <span className="resume-dropdown-name">{r.resumeName || 'Untitled'}</span>
+                            <span className="resume-dropdown-date">
+                              {new Date(r.updatedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          className="resume-delete-btn"
+                          onClick={(e) => handleDeleteResume(r._id, e)}
+                          title="Delete resume"
+                        >
+                          <HiOutlineTrash />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button className="btn btn-primary" id="save-resume-btn" onClick={handleSave} disabled={saving}>
+            <HiOutlineSave /> {saving ? 'Saving...' : 'Save'}
+          </button>
+          <button className="btn btn-success" id="download-resume-btn" onClick={handleDownload} disabled={downloading}>
+            <HiOutlineDownload /> {downloading ? 'Downloading...' : 'Download PDF'}
+          </button>
+        </div>
       </div>
 
-      <div className="resume-layout">
-        {/* Left Panel - Resume List & Upload */}
-        <div className="resume-sidebar glass-card">
-          <div className="resume-sidebar-header">
-            <h3>My Resumes</h3>
-          </div>
-
-          <div className="resume-upload-zone">
-            <label className="upload-btn" htmlFor="resume-upload">
-              <HiOutlineUpload /> Upload PDF
-              <input type="file" id="resume-upload" accept=".pdf,.doc,.docx" onChange={handleUpload} hidden />
-            </label>
-            <button className="btn btn-sm btn-primary" onClick={createNewResume} disabled={loading}>
-              <HiOutlinePlus /> New Resume
-            </button>
-          </div>
-
-          <div className="resume-list">
-            {resumes.map(r => (
+      {/* ═══════ TEMPLATE SELECTOR ═══════ */}
+      <div className="template-selector-bar glass-card" id="template-selector">
+        <h4 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0, paddingBottom: showTemplates ? '12px' : '0' }}>
+          Select Template
+          <button className="btn btn-sm btn-ghost" onClick={() => setShowTemplates(!showTemplates)}>
+            {showTemplates ? 'Hide' : 'Show'} <HiOutlineChevronDown style={{ transform: showTemplates ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginLeft: '4px' }} />
+          </button>
+        </h4>
+        {showTemplates && (
+          <div className="template-selector-scroll" style={{ marginTop: '12px' }}>
+            {templatesList.map(t => (
               <div
-                key={r._id}
-                className={`resume-list-item ${activeResume?._id === r._id ? 'active' : ''}`}
-                onClick={() => loadResume(r._id)}
+                key={t.id}
+                className={`template-thumb-card ${selectedTemplateId === t.id ? 'selected' : ''}`}
+                onClick={() => setSelectedTemplateId(t.id)}
+                id={`template-${t.id}`}
               >
-                <div className="resume-list-info">
-                  <HiOutlineDocumentText />
-                  <div>
-                    <span className="resume-list-title">{r.title}</span>
-                    <span className="resume-list-role">{r.targetRole}</span>
-                  </div>
+                <div className="template-thumb-img-wrapper">
+                  <img src={t.image} alt={t.name} />
+                  {selectedTemplateId === t.id && (
+                    <div className="template-selected-badge">✓</div>
+                  )}
                 </div>
-                <button className="resume-delete-btn" title="Delete Resume" onClick={(e) => { e.stopPropagation(); deleteResume(r._id); }}>
-                  <HiOutlineTrash />
-                </button>
+                <span className="template-thumb-label">{t.name}</span>
               </div>
             ))}
           </div>
+        )}
+      </div>
 
-          {/* Target Role & Template */}
-          <div className="resume-config">
-            <div className="input-group">
-              <label>Target Role</label>
-              <select className="input-field" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
-                {targetRoles.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <div className="input-group">
-              <label>Choose a Template</label>
-              <div className="template-selector-grid">
-                {templates.map(t => (
-                  <div key={t.id} className={`template-thumbnail ${template === t.id ? 'selected' : ''}`} onClick={() => setTemplate(t.id)}>
-                    <img src={t.image} alt={t.name} />
-                    <span>{t.name}</span>
+      {/* ═══════ MAIN SPLIT LAYOUT ═══════ */}
+      <div className={`resume-layout ${isFullscreen ? 'fullscreen-mode' : ''} ${!showTemplates ? 'templates-hidden' : ''} ${isResizing ? 'is-resizing' : ''}`}>
+        {/* Left Panel - Forms */}
+        <div className="resume-form-panel glass-card" id="resume-form-panel" style={{ flex: isFullscreen ? `0 0 ${leftWidth}%` : 1 }}>
+          <div className="section-nav" style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {['contact', 'summary', 'experience', 'education', 'projects', 'skills'].map(s => (
+              <button key={s} className={`btn btn-sm ${activeSection === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSection(s)}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className="section-editor">
+            {/* ── CONTACT ── */}
+            {activeSection === 'contact' && (
+              <div className="editor-section">
+                <h4>Contact Information</h4>
+                <div className="editor-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  {['name', 'email', 'phone', 'linkedin', 'github', 'portfolio', 'location'].map(f => (
+                    <div key={f} className="input-group">
+                      <label>{f.charAt(0).toUpperCase() + f.slice(1)}</label>
+                      <input
+                        className="input-field"
+                        style={{ width: '100%', padding: '8px' }}
+                        value={resumeData.contact?.[f] || ''}
+                        onChange={e => updateContact(f, e.target.value)}
+                        id={`contact-${f}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── SUMMARY ── */}
+            {activeSection === 'summary' && (
+              <div className="editor-section">
+                <h4>Professional Summary</h4>
+                <textarea
+                  className="input-field"
+                  style={{ width: '100%', padding: '8px' }}
+                  value={resumeData.summary || ''}
+                  onChange={e => setResumeData(prev => ({ ...prev, summary: e.target.value }))}
+                  rows={6}
+                  id="summary-textarea"
+                />
+              </div>
+            )}
+
+            {/* ── EXPERIENCE ── */}
+            {activeSection === 'experience' && (
+              <div className="editor-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h4>Work Experience</h4>
+                  <button className="btn btn-sm btn-primary" onClick={addExperience} id="add-experience-btn"><HiOutlinePlus /> Add</button>
+                </div>
+                {(resumeData.experience || []).length === 0 && (
+                  <div className="editor-empty-hint">
+                    <p>No experience entries yet. Click <strong>Add</strong> to create one.</p>
+                  </div>
+                )}
+                {(resumeData.experience || []).map((exp, i) => (
+                  <div key={i} className="editor-item glass-card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Title</label>
+                        <input className="input-field" style={{ width: '100%' }} value={exp.title || ''} onChange={e => {
+                          const updated = [...resumeData.experience];
+                          updated[i] = { ...updated[i], title: e.target.value };
+                          setResumeData(prev => ({ ...prev, experience: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>Company</label>
+                        <input className="input-field" style={{ width: '100%' }} value={exp.company || ''} onChange={e => {
+                          const updated = [...resumeData.experience];
+                          updated[i] = { ...updated[i], company: e.target.value };
+                          setResumeData(prev => ({ ...prev, experience: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>Start Date</label>
+                        <input className="input-field" style={{ width: '100%' }} value={exp.startDate || ''} onChange={e => {
+                          const updated = [...resumeData.experience];
+                          updated[i] = { ...updated[i], startDate: e.target.value };
+                          setResumeData(prev => ({ ...prev, experience: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>End Date</label>
+                        <input className="input-field" style={{ width: '100%' }} value={exp.endDate || ''} placeholder={exp.current ? 'Present' : ''} onChange={e => {
+                          const updated = [...resumeData.experience];
+                          updated[i] = { ...updated[i], endDate: e.target.value };
+                          setResumeData(prev => ({ ...prev, experience: updated }));
+                        }} />
+                      </div>
+                    </div>
+                    <div className="input-group" style={{ marginTop: 12 }}>
+                      <label>Bullet Points (one per line)</label>
+                      <textarea className="input-field" style={{ width: '100%' }} rows={4}
+                        value={(exp.bullets || []).join('\n')}
+                        onChange={e => {
+                          const updated = [...resumeData.experience];
+                          updated[i] = { ...updated[i], bullets: e.target.value.split('\n') };
+                          setResumeData(prev => ({ ...prev, experience: updated }));
+                        }}
+                      />
+                    </div>
+                    <button className="btn btn-sm btn-danger" style={{ marginTop: 12 }} onClick={() => {
+                      setResumeData(prev => ({ ...prev, experience: prev.experience.filter((_, idx) => idx !== i) }));
+                    }}><HiOutlineTrash /> Remove</button>
                   </div>
                 ))}
               </div>
-            </div>
-            {template === 'custom' && (
-              <div className="input-group" style={{ marginTop: '16px' }}>
-                <label>Custom CSS Overrides</label>
-                <textarea 
-                  className="input-field" 
-                  rows={4} 
-                  value={sections.customCss || ''} 
-                  onChange={e => setSections({...sections, customCss: e.target.value})}
-                  placeholder=".resume-template { background: #fee; }"
-                />
+            )}
+
+            {/* ── EDUCATION ── */}
+            {activeSection === 'education' && (
+              <div className="editor-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h4>Education</h4>
+                  <button className="btn btn-sm btn-primary" onClick={addEducation} id="add-education-btn"><HiOutlinePlus /> Add</button>
+                </div>
+                {(resumeData.education || []).length === 0 && (
+                  <div className="editor-empty-hint">
+                    <p>No education entries yet. Click <strong>Add</strong> to create one.</p>
+                  </div>
+                )}
+                {(resumeData.education || []).map((edu, i) => (
+                  <div key={i} className="editor-item glass-card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Degree</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.degree || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], degree: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>Institution</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.institution || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], institution: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>GPA</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.gpa || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], gpa: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>Start Date</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.startDate || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], startDate: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>End Date / Year</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.endDate || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], endDate: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>Relevant Coursework</label>
+                        <input className="input-field" style={{ width: '100%' }} value={edu.relevant || ''} onChange={e => {
+                          const updated = [...resumeData.education];
+                          updated[i] = { ...updated[i], relevant: e.target.value };
+                          setResumeData(prev => ({ ...prev, education: updated }));
+                        }} />
+                      </div>
+                    </div>
+                    <button className="btn btn-sm btn-danger" style={{ marginTop: 12 }} onClick={() => {
+                      setResumeData(prev => ({ ...prev, education: prev.education.filter((_, idx) => idx !== i) }));
+                    }}><HiOutlineTrash /> Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── PROJECTS ── */}
+            {activeSection === 'projects' && (
+              <div className="editor-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h4>Projects</h4>
+                  <button className="btn btn-sm btn-primary" onClick={addProject} id="add-project-btn"><HiOutlinePlus /> Add</button>
+                </div>
+                {(resumeData.projects || []).length === 0 && (
+                  <div className="editor-empty-hint">
+                    <p>No projects yet. Click <strong>Add</strong> to create one.</p>
+                  </div>
+                )}
+                {(resumeData.projects || []).map((proj, i) => (
+                  <div key={i} className="editor-item glass-card" style={{ padding: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Project Name</label>
+                        <input className="input-field" style={{ width: '100%' }} value={proj.name || ''} onChange={e => {
+                          const updated = [...resumeData.projects];
+                          updated[i] = { ...updated[i], name: e.target.value };
+                          setResumeData(prev => ({ ...prev, projects: updated }));
+                        }} />
+                      </div>
+                      <div className="input-group">
+                        <label>GitHub/Link</label>
+                        <input className="input-field" style={{ width: '100%' }} value={proj.github || ''} onChange={e => {
+                          const updated = [...resumeData.projects];
+                          updated[i] = { ...updated[i], github: e.target.value };
+                          setResumeData(prev => ({ ...prev, projects: updated }));
+                        }} />
+                      </div>
+                    </div>
+                    <div className="input-group" style={{ marginTop: 12 }}>
+                      <label>Tech Stack (comma separated)</label>
+                      <input className="input-field" style={{ width: '100%' }}
+                        value={(proj.techStack || []).join(', ')}
+                        onChange={e => {
+                          const updated = [...resumeData.projects];
+                          updated[i] = { ...updated[i], techStack: e.target.value.split(',').map(s => s.trim()).filter(Boolean) };
+                          setResumeData(prev => ({ ...prev, projects: updated }));
+                        }}
+                      />
+                    </div>
+                    <div className="input-group" style={{ marginTop: 12 }}>
+                      <label>Description & Bullets (one per line)</label>
+                      <textarea className="input-field" style={{ width: '100%' }} rows={4}
+                        value={(proj.bullets || []).join('\n')}
+                        onChange={e => {
+                          const updated = [...resumeData.projects];
+                          updated[i] = { ...updated[i], bullets: e.target.value.split('\n') };
+                          setResumeData(prev => ({ ...prev, projects: updated }));
+                        }}
+                      />
+                    </div>
+                    <button className="btn btn-sm btn-danger" style={{ marginTop: 12 }} onClick={() => {
+                      setResumeData(prev => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
+                    }}><HiOutlineTrash /> Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── SKILLS ── */}
+            {activeSection === 'skills' && (
+              <div className="editor-section">
+                <h4>Skills</h4>
+                {['languages', 'frameworks', 'tools', 'databases', 'other'].map(cat => (
+                  <div key={cat} className="skill-category" style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', textTransform: 'capitalize', marginBottom: '8px' }}>{cat}</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {(resumeData.skills?.[cat] || []).map((s, i) => (
+                        <span key={i} className="skill-chip badge badge-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {s}
+                          <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }} onClick={() => removeSkill(cat, i)}>&times;</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        className="input-field"
+                        style={{ flex: 1 }}
+                        placeholder={`Add ${cat}...`}
+                        value={skillInput}
+                        onChange={e => setSkillInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            addSkill(cat);
+                            e.preventDefault();
+                          }
+                        }}
+                      />
+                      <button className="btn btn-sm btn-primary" onClick={() => addSkill(cat)}>Add</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="resume-main">
-          {/* Toolbar */}
-          <div className="resume-toolbar glass-card">
-            <div className="resume-toolbar-tabs">
-              <button className={`tab ${view === 'editor' ? 'active' : ''}`} onClick={() => setView('editor')}>
-                <HiOutlinePencil /> Editor
+        {/* Vertical Resizer in Fullscreen */}
+        {isFullscreen && (
+          <div className="layout-resizer" onMouseDown={handleMouseDown}>
+            <div className="layout-resizer-handle"></div>
+          </div>
+        )}
+
+        {/* Right Panel - Live Preview */}
+        <div className="resume-preview-panel glass-card" id="resume-preview-panel">
+          <div className="preview-header">
+            <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)' }}>Live Preview</h4>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-sm btn-primary" onClick={handleManualCompile}>
+                <HiOutlineDocumentText style={{ marginRight: '4px' }} /> Compile Resume
               </button>
-              <button className={`tab ${view === 'preview' ? 'active' : ''}`} onClick={() => setView('preview')}>
-                <HiOutlineEye /> Preview
-              </button>
-              <button className={`tab ${view === 'analysis' ? 'active' : ''}`} onClick={() => setView('analysis')}>
-                <HiOutlineSparkles /> AI Analysis
-              </button>
-            </div>
-            <div className="resume-toolbar-actions">
-              <button className="btn btn-sm btn-secondary" onClick={saveResume} disabled={!activeResume || loading}>
-                {loading ? 'Saving...' : 'Save'}
-              </button>
-              <button className="btn btn-sm btn-success" onClick={() => analyzeResume(false)} disabled={!activeResume || analyzing}>
-                {analyzing ? 'Analyzing...' : analysis ? '🔍 View Analysis' : '🔍 Analyze'}
-              </button>
-              {analysis && (
-                <button className="btn btn-sm btn-ghost" onClick={() => analyzeResume(true)} disabled={analyzing} title="Re-analyze using AI (uses API credits)">
-                  🔄 Re-Analyze
-                </button>
-              )}
-              <button className="btn btn-sm btn-primary" onClick={optimizeResume} disabled={!activeResume || optimizing}>
-                {optimizing ? 'Optimizing...' : '✨ AI Optimize'}
-              </button>
-              <button className="btn btn-sm btn-ghost" onClick={downloadPDF}>
-                <HiOutlineDownload /> PDF
+              <button className="btn btn-sm btn-secondary" onClick={() => setIsFullscreen(!isFullscreen)}>
+                {isFullscreen ? 'Shrink' : 'Enlarge'}
               </button>
             </div>
           </div>
-
-          {/* Editor View */}
-          {view === 'editor' && (
-            <div className="resume-editor">
-              {/* Section Nav */}
-              <div className="section-nav">
-                {['contact', 'summary', 'experience', 'education', 'projects', 'skills'].map(s => (
-                  <button
-                    key={s}
-                    className={`section-nav-btn ${activeSection === s ? 'active' : ''}`}
-                    onClick={() => setActiveSection(s)}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="section-editor glass-card">
-                {activeSection === 'contact' && (
-                  <div className="editor-section">
-                    <h4>Contact Information</h4>
-                    <div className="editor-grid">
-                      {['name', 'email', 'phone', 'linkedin', 'github', 'portfolio', 'location'].map(f => (
-                        <div key={f} className="input-group">
-                          <label>{f.charAt(0).toUpperCase() + f.slice(1)}</label>
-                          <input
-                            className="input-field"
-                            value={sections.contact?.[f] || ''}
-                            onChange={e => updateContact(f, e.target.value)}
-                            placeholder={f === 'linkedin' ? 'linkedin.com/in/yourname' : f === 'github' ? 'github.com/yourname' : ''}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeSection === 'summary' && (
-                  <div className="editor-section">
-                    <h4>Professional Summary</h4>
-                    <textarea
-                      className="input-field summary-textarea"
-                      value={sections.summary || ''}
-                      onChange={e => setSections(prev => ({ ...prev, summary: e.target.value }))}
-                      placeholder="Write a 2-3 line professional summary highlighting your key skills and goals..."
-                      rows={4}
-                    />
-                  </div>
-                )}
-
-                {activeSection === 'experience' && (
-                  <div className="editor-section">
-                    <div className="editor-section-header">
-                      <h4>Work Experience</h4>
-                      <button className="btn btn-sm btn-primary" onClick={addExperience}><HiOutlinePlus /> Add</button>
-                    </div>
-                    {(sections.experience || []).map((exp, i) => (
-                      <div key={i} className="editor-item">
-                        <div className="editor-grid">
-                          <div className="input-group">
-                            <label>Job Title</label>
-                            <input className="input-field" value={exp.title || ''} onChange={e => {
-                              const updated = [...sections.experience];
-                              updated[i] = { ...updated[i], title: e.target.value };
-                              setSections(prev => ({ ...prev, experience: updated }));
-                            }} />
-                          </div>
-                          <div className="input-group">
-                            <label>Company</label>
-                            <input className="input-field" value={exp.company || ''} onChange={e => {
-                              const updated = [...sections.experience];
-                              updated[i] = { ...updated[i], company: e.target.value };
-                              setSections(prev => ({ ...prev, experience: updated }));
-                            }} />
-                          </div>
-                          <div className="input-group">
-                            <label>Start Date</label>
-                            <input className="input-field" value={exp.startDate || ''} onChange={e => {
-                              const updated = [...sections.experience];
-                              updated[i] = { ...updated[i], startDate: e.target.value };
-                              setSections(prev => ({ ...prev, experience: updated }));
-                            }} placeholder="Jan 2024" />
-                          </div>
-                          <div className="input-group">
-                            <label>End Date</label>
-                            <input className="input-field" value={exp.endDate || ''} onChange={e => {
-                              const updated = [...sections.experience];
-                              updated[i] = { ...updated[i], endDate: e.target.value };
-                              setSections(prev => ({ ...prev, experience: updated }));
-                            }} placeholder="Present" />
-                          </div>
-                        </div>
-                        <div className="input-group" style={{ marginTop: 12 }}>
-                          <label>Bullet Points (one per line)</label>
-                          <textarea className="input-field" rows={3}
-                            value={(exp.bullets || []).join('\n')}
-                            onChange={e => {
-                              const updated = [...sections.experience];
-                              updated[i] = { ...updated[i], bullets: e.target.value.split('\n') };
-                              setSections(prev => ({ ...prev, experience: updated }));
-                            }}
-                            placeholder="Designed and developed..."
-                          />
-                        </div>
-                        <button className="btn btn-sm btn-danger" style={{ marginTop: 8 }} onClick={() => {
-                          setSections(prev => ({ ...prev, experience: prev.experience.filter((_, idx) => idx !== i) }));
-                        }}><HiOutlineTrash /> Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeSection === 'education' && (
-                  <div className="editor-section">
-                    <div className="editor-section-header">
-                      <h4>Education</h4>
-                      <button className="btn btn-sm btn-primary" onClick={addEducation}><HiOutlinePlus /> Add</button>
-                    </div>
-                    {(sections.education || []).map((edu, i) => (
-                      <div key={i} className="editor-item">
-                        <div className="editor-grid">
-                          <div className="input-group">
-                            <label>Degree</label>
-                            <input className="input-field" value={edu.degree || ''} onChange={e => {
-                              const updated = [...sections.education];
-                              updated[i] = { ...updated[i], degree: e.target.value };
-                              setSections(prev => ({ ...prev, education: updated }));
-                            }} placeholder="B.Tech Computer Science" />
-                          </div>
-                          <div className="input-group">
-                            <label>Institution</label>
-                            <input className="input-field" value={edu.institution || ''} onChange={e => {
-                              const updated = [...sections.education];
-                              updated[i] = { ...updated[i], institution: e.target.value };
-                              setSections(prev => ({ ...prev, education: updated }));
-                            }} />
-                          </div>
-                          <div className="input-group">
-                            <label>GPA</label>
-                            <input className="input-field" value={edu.gpa || ''} onChange={e => {
-                              const updated = [...sections.education];
-                              updated[i] = { ...updated[i], gpa: e.target.value };
-                              setSections(prev => ({ ...prev, education: updated }));
-                            }} placeholder="8.5/10" />
-                          </div>
-                          <div className="input-group">
-                            <label>Year</label>
-                            <input className="input-field" value={edu.endDate || ''} onChange={e => {
-                              const updated = [...sections.education];
-                              updated[i] = { ...updated[i], endDate: e.target.value };
-                              setSections(prev => ({ ...prev, education: updated }));
-                            }} placeholder="2025" />
-                          </div>
-                        </div>
-                        <button className="btn btn-sm btn-danger" style={{ marginTop: 8 }} onClick={() => {
-                          setSections(prev => ({ ...prev, education: prev.education.filter((_, idx) => idx !== i) }));
-                        }}><HiOutlineTrash /> Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeSection === 'projects' && (
-                  <div className="editor-section">
-                    <div className="editor-section-header">
-                      <h4>Projects</h4>
-                      <button className="btn btn-sm btn-primary" onClick={addProject}><HiOutlinePlus /> Add</button>
-                    </div>
-                    {(sections.projects || []).map((proj, i) => (
-                      <div key={i} className="editor-item">
-                        <div className="editor-grid">
-                          <div className="input-group">
-                            <label>Project Name</label>
-                            <input className="input-field" value={proj.name || ''} onChange={e => {
-                              const updated = [...sections.projects];
-                              updated[i] = { ...updated[i], name: e.target.value };
-                              setSections(prev => ({ ...prev, projects: updated }));
-                            }} />
-                          </div>
-                          <div className="input-group">
-                            <label>GitHub Link</label>
-                            <input className="input-field" value={proj.github || ''} onChange={e => {
-                              const updated = [...sections.projects];
-                              updated[i] = { ...updated[i], github: e.target.value };
-                              setSections(prev => ({ ...prev, projects: updated }));
-                            }} />
-                          </div>
-                        </div>
-                        <div className="input-group" style={{ marginTop: 12 }}>
-                          <label>Description & Bullets (one per line)</label>
-                          <textarea className="input-field" rows={3}
-                            value={(proj.bullets || []).join('\n')}
-                            onChange={e => {
-                              const updated = [...sections.projects];
-                              updated[i] = { ...updated[i], bullets: e.target.value.split('\n') };
-                              setSections(prev => ({ ...prev, projects: updated }));
-                            }}
-                          />
-                        </div>
-                        <div className="input-group" style={{ marginTop: 8 }}>
-                          <label>Tech Stack (comma separated)</label>
-                          <input className="input-field"
-                            value={(proj.techStack || []).join(', ')}
-                            onChange={e => {
-                              const updated = [...sections.projects];
-                              updated[i] = { ...updated[i], techStack: e.target.value.split(',').map(s => s.trim()).filter(Boolean) };
-                              setSections(prev => ({ ...prev, projects: updated }));
-                            }}
-                            placeholder="React, Node.js, MongoDB"
-                          />
-                        </div>
-                        <button className="btn btn-sm btn-danger" style={{ marginTop: 8 }} onClick={() => {
-                          setSections(prev => ({ ...prev, projects: prev.projects.filter((_, idx) => idx !== i) }));
-                        }}><HiOutlineTrash /> Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeSection === 'skills' && (
-                  <div className="editor-section">
-                    <h4>Skills</h4>
-                    {['languages', 'frameworks', 'tools', 'databases', 'other'].map(cat => (
-                      <div key={cat} className="skill-category">
-                        <label>{cat.charAt(0).toUpperCase() + cat.slice(1)}</label>
-                        <div className="skill-chips">
-                          {(sections.skills?.[cat] || []).map((s, i) => (
-                            <span key={i} className="skill-chip">
-                              {s}
-                              <button onClick={() => removeSkill(cat, i)}>&times;</button>
-                            </span>
-                          ))}
-                        </div>
-                        <div className="skill-add">
-                          <input
-                            className="input-field"
-                            placeholder={`Add ${cat}...`}
-                            value={skillInput}
-                            onChange={e => setSkillInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && addSkill(cat)}
-                          />
-                          <button className="btn btn-sm btn-primary" onClick={() => addSkill(cat)}>Add</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Preview View */}
-          {view === 'preview' && (
-            <div className="resume-preview glass-card" id="resume-preview">
-              
-              {activeResume?.pdfUrl && (
-                <div className="preview-toggle-bar">
-                  <span style={{ marginRight: 16, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    Original PDF uploaded. Toggle to see live edits in Template view:
-                  </span>
-                  <div className="btn-group">
-                    <button 
-                      className={`btn btn-sm ${previewMode === 'pdf' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setPreviewMode('pdf')}
-                    >
-                      Original PDF
-                    </button>
-                    <button 
-                      className={`btn btn-sm ${previewMode === 'template' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setPreviewMode('template')}
-                    >
-                      Live Template
-                    </button>
-                  </div>
+          
+          <div className="preview-content-area">
+            {/* Compiling overlay */}
+            {isCompiling && (
+              <div className="preview-compiling-overlay">
+                <div className="preview-spinner">
+                  <div className="loader"></div>
+                  <span>Compiling LaTeX...</span>
                 </div>
-              )}
-
-              <div className="preview-content-area" style={{ marginTop: activeResume?.pdfUrl ? 16 : 0 }}>
-                {activeResume?.pdfUrl && previewMode === 'pdf' ? (
-                  <iframe src={`http://localhost:5000${activeResume.pdfUrl}`} title="PDF Preview" width="100%" height="800px" style={{ border: 'none', borderRadius: '8px', background: 'white' }} />
-                ) : (
-                  <TemplateRenderer sections={sections} />
-                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Analysis View */}
-          {view === 'analysis' && (
-            <div className="resume-analysis">
-              {analysis ? (
-                <div className="stagger-children">
-                  {/* Score Cards */}
-                  <div className="analysis-scores">
-                    <div className="glass-card analysis-score-card">
-                      <h4>Overall Score</h4>
-                      <div className="analysis-score" style={{ color: scoreColor(overallScore) }}>
-                        {overallScore}<span>/100</span>
-                      </div>
-                    </div>
-                    <div className="glass-card analysis-score-card">
-                      <h4>ATS Score</h4>
-                      <div className="analysis-score" style={{ color: scoreColor(atsScore) }}>
-                        {atsScore}<span>/100</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Missing Keywords */}
-                  {analysis.missingKeywords?.length > 0 && (
-                    <div className="glass-card" style={{ padding: 24 }}>
-                      <h4><HiOutlineExclamation style={{color: '#fdcb6e'}} /> Missing Keywords for {targetRole}</h4>
-                      <div className="keyword-chips">
-                        {analysis.missingKeywords.map((k, i) => (
-                          <span key={i} className="badge badge-warning">{k}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Suggestions */}
-                  {analysis.suggestions?.length > 0 && (
-                    <div className="glass-card" style={{ padding: 24 }}>
-                      <h4><HiOutlineLightningBolt style={{color: 'var(--accent-primary)'}} /> Suggestions</h4>
-                      <div className="suggestions-list">
-                        {analysis.suggestions.map((s, i) => (
-                          <div key={i} className="suggestion-item">
-                            <span className={`badge badge-${s.priority === 'high' ? 'danger' : s.priority === 'medium' ? 'warning' : 'success'}`}>{s.section}</span>
-                            <div>
-                              <p className="suggestion-issue">{s.issue}</p>
-                              <p className="suggestion-fix">{s.suggestion}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Improved Summary */}
-                  {analysis.improvedSummary && (
-                    <div className="glass-card" style={{ padding: 24 }}>
-                      <h4><HiOutlineCheckCircle style={{color: '#00b894'}} /> AI-Generated Summary</h4>
-                      <p className="improved-text">{analysis.improvedSummary}</p>
-                      <button className="btn btn-sm btn-success" style={{ marginTop: 12 }}
-                        onClick={() => { setSections(prev => ({ ...prev, summary: analysis.improvedSummary })); setView('editor'); }}>
-                        Use This Summary
-                      </button>
-                    </div>
-                  )}
+            {/* PDF Preview */}
+            {pdfBlobUrl && !previewError ? (
+              <iframe
+                src={pdfBlobUrl}
+                title="Resume PDF Preview"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                type="application/pdf"
+                id="pdf-preview-frame"
+              />
+            ) : previewError ? (
+              <div className="preview-error-state">
+                <div className="preview-error-icon">⚠️</div>
+                <h3>Compilation Error</h3>
+                <p>{previewError}</p>
+                <button className="btn btn-sm btn-primary" onClick={() => {
+                  setPreviewError('');
+                  const latex = generateLatex();
+                  if (latex) compilePdf(latex);
+                }}>Retry</button>
+              </div>
+            ) : hasContent() ? (
+              <div className="preview-waiting-state">
+                <div className="preview-waiting-icon animate-pulse">📄</div>
+                <p>Click "Compile Resume" to preview your document.</p>
+              </div>
+            ) : (
+              <div className="preview-empty-state">
+                <div className="preview-empty-icon">
+                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                    <rect x="16" y="8" width="48" height="64" rx="4" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.3" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="glass-card" style={{ textAlign: 'center', padding: 48 }}>
-                  <HiOutlineSparkles style={{ fontSize: '2.5rem', color: 'var(--accent-primary)', marginBottom: 16 }} />
-                  <h3>Analyze Your Resume</h3>
-                  <p style={{ color: 'var(--text-secondary)', margin: '8px 0 24px' }}>
-                    Click "🔍 Analyze" in the toolbar to get ATS scores, missing keywords, and AI suggestions.
-                  </p>
+                <h3>Your Resume Preview</h3>
+                <p>Start filling in your details on the left panel.<br />Then click Compile to see the PDF preview.</p>
+                <div className="preview-empty-steps">
+                  <span>① Add Info</span>
+                  <span>② Choose Template</span>
+                  <span>③ Compile</span>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* ═══════ SAVE MODAL ═══════ */}
+      {showSaveModal && (
+        <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
+          <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} id="save-modal">
+            <div className="modal-header">
+              <h3>💾 Name Your Resume</h3>
+              <button className="btn btn-ghost" onClick={() => setShowSaveModal(false)}>
+                <HiX />
+              </button>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-group" style={{ marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  Resume Name (e.g. SDE_Google_Resume)
+                </span>
+                <input
+                  className="input-field"
+                  style={{ width: '100%' }}
+                  value={saveNameInput}
+                  onChange={e => setSaveNameInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmSave(); }}
+                  placeholder="My Awesome Resume"
+                  autoFocus
+                  id="save-name-input"
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowSaveModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmSave} disabled={saving} id="confirm-save-btn">
+                <HiOutlineSave /> {saving ? 'Saving...' : 'Save Resume'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default ResumeBuilder;
+}

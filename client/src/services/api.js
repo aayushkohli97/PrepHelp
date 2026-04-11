@@ -50,8 +50,10 @@ export const resumeAPI = {
   upload: (formData) => API.post('/resume/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  save: (data) => API.post('/resume/save-resume', data),
   create: (data) => API.post('/resume/create', data),
   getAll: () => API.get('/resume'),
+  getList: () => API.get('/resume/list'),
   getOne: (id) => API.get(`/resume/${id}`),
   update: (id, data) => API.put(`/resume/${id}`, data),
   analyze: (id) => API.post(`/resume/${id}/analyze`),

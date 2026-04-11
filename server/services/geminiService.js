@@ -1,8 +1,44 @@
 import ai, { geminiModel } from '../config/gemini.js';
+// NAYA IMPORT: Dynamic keys ke liye SDK class chahiye
+import { GoogleGenAI } from '@google/genai'; 
+
+const apiKeys = process.env.GEMINI_API_KEYS 
+  ? process.env.GEMINI_API_KEYS.split(',') 
+  : [process.env.GEMINI_API_KEY];
+
+let currentKeyIndex = 0; // State maintain karne ke liye bahar define kiya hai
+
+const executeWithFallback = async (actionFunction) => {
+  let attempts = 0;
+  const maxAttempts = apiKeys.length;
+
+  while (attempts < maxAttempts) {
+    try {
+      // Current key se naya Gemini instance banao (Using New SDK Syntax)
+      const dynamicAi = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
+      
+      // Function ko dynamic instance pass karo
+      return await actionFunction(dynamicAi); 
+      
+    } catch (error) {
+      console.error(`⚠️ Key ${currentKeyIndex} failed. Reason:`, error.message);
+      attempts++;
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Saari API keys exhaust ho chuki hain (Limit Reached).');
+      }
+      
+      // Agar fail hua, toh index update karke next key par jao
+      currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+      console.log(`🔄 Retrying with next API Key (Index: ${currentKeyIndex})...`);
+    }
+  }
+};
 
 // Profile Analysis Prompt
 export const analyzeProfile = async (profileData) => {
-  const prompt = `You are an expert placement preparation advisor. Analyze the following coding profile data and provide a comprehensive assessment.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are an expert placement preparation advisor. Analyze the following coding profile data and provide a comprehensive assessment.
 
 PROFILE DATA:
 ${JSON.stringify(profileData, null, 2)}
@@ -50,50 +86,96 @@ Include these important topics in your coverage analysis: Arrays, Strings, Linke
 
 Be realistic and data-driven. Be STRICT with the score.`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { raw: text, error: 'Failed to parse AI response' };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { raw: text, error: 'Failed to parse AI response' };
+    }
+  });
+};
+
+// Parse Raw PDF Text into structured sections
+export const parseResume = async (pdfText) => {
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are a resume parsing API. Extract the applicant's details from the following raw resume text and map it into the JSON schema. If information is missing, leave fields as empty strings or arrays.
+
+ALSO, carefully analyze the structure and visual layout implied by the resume text to generate a clean, compilable LaTeX template that mimics its original layout. 
+Use standard LaTeX classes (like article or extarticle). 
+CRITICAL: You MUST use Handlebars syntax (like {{contact.name}}, {{#each experience}}...{{/each}}) directly within the LaTeX code as placeholders for the data, so it can be dynamically injected later. Properly escape LaTeX special characters but DO NOT escape the Handlebars variables.
+
+RAW RESUME TEXT:
+${pdfText}
+
+Return ONLY valid JSON in this exact structure (no markdown, no explanations):
+{
+  "sections": {
+    "contact": {
+      "name": "", "email": "", "phone": "", "linkedin": "", "github": "", "portfolio": "", "location": ""
+    },
+    "summary": "",
+    "experience": [{"title": "", "company": "", "location": "", "startDate": "", "endDate": "", "current": false, "bullets": [""]}],
+    "education": [{"degree": "", "institution": "", "location": "", "startDate": "", "endDate": "", "gpa": "", "relevant": ""}],
+    "projects": [{"name": "", "description": "", "techStack": [""], "link": "", "github": "", "bullets": [""]}],
+    "skills": {
+      "languages": [""], "frameworks": [""], "tools": [""], "databases": [""], "other": [""]
+    },
+    "certifications": [""]
+  },
+  "latexTemplate": "\\\\documentclass[11pt]{article}\\n\\\\begin{document}\\n... (your handlebars-injected LaTeX code here)\\n\\\\end{document}"
+}`;
+
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
+
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { sections: {}, latexTemplate: "" };
+    }
+  });
 };
 
 // Parse Raw PDF Buffer into structured JSON using Gemini base64 inlineData
 export const parseResumeFromBuffer = async (base64PdfBuffer) => {
-  const prompt = `Extract text from this PDF and return ONLY a valid JSON object with keys: name, contact, education (array), experience (array), and skills (array).
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `Extract text from this PDF and return ONLY a valid JSON object with keys: name, contact, education (array), experience (array), and skills (array).
 Make sure to parse out the contact object correctly (email, phone, etc) and the arrays with their respective objects. Do NOT return markdown formatting.`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { data: base64PdfBuffer, mimeType: 'application/pdf' } }
-        ]
-      }
-    ]
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { data: base64PdfBuffer, mimeType: 'application/pdf' } }
+          ]
+        }
+      ]
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    const parsedData = JSON.parse(text);
-    // map the structure back slightly to match the original `sections` idea if possible, or just return as is.
-    return parsedData;
-  } catch (e) {
-    return { name: '', contact: {}, education: [], experience: [], skills: [] };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { name: '', contact: {}, education: [], experience: [], skills: [] };
+    }
+  });
 };
 
 // Resume Analysis Prompt
 export const analyzeResume = async (resumeText, targetRole) => {
-  const prompt = `You are an expert resume reviewer and ATS optimization specialist. Analyze this resume for the target role: ${targetRole}.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are an expert resume reviewer and ATS optimization specialist. Analyze this resume for the target role: ${targetRole}.
 
 RESUME TEXT:
 ${resumeText}
@@ -120,22 +202,24 @@ Provide your analysis in the following JSON format ONLY (no markdown, no extra t
   "powerVerbSuggestions": ["<verb 1>", "<verb 2>"]
 }`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { raw: text, error: 'Failed to parse AI response' };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { raw: text, error: 'Failed to parse AI response' };
+    }
+  });
 };
 
 // Resume Optimization Prompt
 export const optimizeResume = async (resumeSections, targetRole) => {
-  const prompt = `You are an expert resume writer. Optimize this resume for the role: ${targetRole}.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are an expert resume writer. Optimize this resume for the role: ${targetRole}.
 
 CURRENT RESUME SECTIONS:
 ${JSON.stringify(resumeSections, null, 2)}
@@ -160,22 +244,24 @@ Rules:
 - Optimize keywords for ATS for ${targetRole} role
 - Keep the structure but improve the content`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { raw: text, error: 'Failed to parse AI response' };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { raw: text, error: 'Failed to parse AI response' };
+    }
+  });
 };
 
 // Study Chat Prompt
 export const studyChat = async (message, conversationHistory, userWeakTopics) => {
-  const systemContext = `You are PrepHelp AI - an expert placement preparation study companion. You help students prepare for tech placements (SDE, Backend, Frontend, Data Science roles) at top companies.
+  return await executeWithFallback(async (dynamicAi) => {
+    const systemContext = `You are PrepHelp AI - an expert placement preparation study companion. You help students prepare for tech placements (SDE, Backend, Frontend, Data Science roles) at top companies.
 
 ${userWeakTopics?.length ? `The student's weak topics are: ${userWeakTopics.join(', ')}. Prioritize these in recommendations.` : ''}
 
@@ -189,38 +275,38 @@ Always be encouraging but honest. Use examples from real interview questions at 
 
 Format your response in clean markdown with proper headings, code blocks, and bullet points.`;
 
-  const contents = [
-    { role: 'user', parts: [{ text: systemContext }] },
-    { role: 'model', parts: [{ text: 'I understand. I am PrepHelp AI, your placement preparation study companion. How can I help you today?' }] }
-  ];
+    const contents = [
+      { role: 'user', parts: [{ text: systemContext }] },
+      { role: 'model', parts: [{ text: 'I understand. I am PrepHelp AI, your placement preparation study companion. How can I help you today?' }] }
+    ];
 
-  // Add conversation history
-  if (conversationHistory?.length) {
-    conversationHistory.forEach(msg => {
-      contents.push({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
+    if (conversationHistory?.length) {
+      conversationHistory.forEach(msg => {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
       });
+    }
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
     });
-  }
 
-  // Add current message
-  contents.push({
-    role: 'user',
-    parts: [{ text: message }]
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents
+    });
+
+    return response.text;
   });
-
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents
-  });
-
-  return response.text;
 };
 
 // Interview Question Generation
 export const generateInterviewQuestion = async (type, previousQuestions, userAnswer) => {
-  const prompt = `You are a senior tech interviewer conducting a ${type} interview round.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are a senior tech interviewer conducting a ${type} interview round.
 
 ${previousQuestions?.length ? `Previous questions asked: ${previousQuestions.map(q => q.question).join('; ')}` : 'This is the first question.'}
 ${userAnswer ? `The candidate's last answer was: "${userAnswer}"` : ''}
@@ -236,22 +322,24 @@ Generate the next interview question. Return ONLY this JSON:
 ${type === 'hr' ? 'Focus on behavioral, situational, and HR questions.' : 'Focus on DSA, System Design, CS fundamentals, and coding questions.'}
 Don't repeat previous questions. Progressively increase difficulty.`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { question: text, expectedPoints: [], difficulty: 'medium', category: type };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { question: text, expectedPoints: [], difficulty: 'medium', category: type };
+    }
+  });
 };
 
 // Evaluate Interview Answer
 export const evaluateAnswer = async (question, answer, type) => {
-  const prompt = `You are a senior interviewer evaluating this answer.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `You are a senior interviewer evaluating this answer.
 
 QUESTION: ${question}
 CANDIDATE'S ANSWER: ${answer}
@@ -266,22 +354,24 @@ Evaluate and return ONLY this JSON:
   "idealAnswer": "<brief ideal answer summary>"
 }`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { score: 5, feedback: text, strengths: [], improvements: [], idealAnswer: '' };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { score: 5, feedback: text, strengths: [], improvements: [], idealAnswer: '' };
+    }
+  });
 };
 
 // Generate Interview Report
 export const generateInterviewReport = async (session) => {
-  const prompt = `Analyze this mock interview session and generate a comprehensive report.
+  return await executeWithFallback(async (dynamicAi) => {
+    const prompt = `Analyze this mock interview session and generate a comprehensive report.
 
 INTERVIEW DATA:
 ${JSON.stringify(session, null, 2)}
@@ -300,15 +390,16 @@ Return ONLY this JSON:
   "summary": "<3-4 line overall assessment>"
 }`;
 
-  const response = await ai.models.generateContent({
-    model: geminiModel,
-    contents: prompt
-  });
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
 
-  const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    return { overallScore: 50, summary: text };
-  }
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { overallScore: 50, summary: text };
+    }
+  });
 };

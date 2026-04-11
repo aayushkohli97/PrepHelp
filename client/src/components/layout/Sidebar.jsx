@@ -69,23 +69,6 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        {!collapsed && user && (
-          <div className="sidebar-user">
-            <div className="sidebar-avatar">
-              {user.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user.name}</span>
-              <span className="sidebar-user-score">Score: {user.placementScore || 0}/100</span>
-            </div>
-          </div>
-        )}
-        <button className="sidebar-logout" onClick={logout} title="Logout">
-          <HiOutlineLogout />
-          {!collapsed && <span>Logout</span>}
-        </button>
-      </div>
     </aside>
   );
 };

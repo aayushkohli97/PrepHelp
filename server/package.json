@@ -14,7 +14,7 @@
   "description": "",
   "dependencies": {
     "@google/genai": "^1.48.0",
-    "axios": "^1.14.0",
+    "axios": "^1.15.0",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
@@ -24,7 +24,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
     "multer": "^2.1.1",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "qs": "^6.15.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
