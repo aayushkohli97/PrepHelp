@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "axios": "^1.15.0",
     "handlebars": "^4.7.9",
     "html2canvas": "^1.4.1",

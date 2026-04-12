@@ -1,0 +1,438 @@
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lb-header-left { flex: 1; min-width: 200px; }
+
+.lb-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+/* ── Tabs ── */
+.lb-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--border-light);
+}
+
+.lb-tab-btn {
+  padding: 7px 16px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+}
+
+.lb-tab-btn.active {
+  background: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(108, 92, 231, 0.3);
+}
+
+.lb-tab-btn:not(.active):hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+/* ── Platform Dropdown ── */
+.lb-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.lb-select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 11px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  font-size: 0.75rem;
+}
+
+.lb-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--text-primary);
+  padding: 7px 34px 7px 13px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.lb-select:hover,
+.lb-select:focus {
+  background: rgba(108, 92, 231, 0.08);
+  border-color: var(--primary-color);
+}
+
+.lb-select option {
+  background: #1a1a2e;
+  color: var(--text-primary);
+}
+
+
+/* ============================================
+   🏆 NEW VERTICAL PEDESTAL/BAR UI (TOP 3)
+   ============================================ */
+
+.lb-podium-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* Aligns the pedestals to the bottom */
+  gap: 15px;
+  height: 280px; /* Fixed height container so ranks step properly */
+  padding-top: 20px;
+}
+
+.lb-podium-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 140px; /* Width of the pedestal */
+}
+
+/* Avatar sitting above the pedestal */
+.lb-podium-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  margin-bottom: -15px; /* Pulls the pedestal UP behind the avatar */
+}
+
+.lb-crown-wrap {
+  margin-bottom: 5px;
+}
+
+.lb-podium-avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  overflow: hidden;
+  background: #111; 
+  border: 4px solid;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Rank 1 Avatar sizing */
+.lb-podium-step.rank-1 .lb-podium-avatar {
+  width: 90px;
+  height: 90px;
+  font-size: 2rem;
+}
+
+/* Rank 2 & 3 Avatar sizing */
+.lb-podium-step.rank-2 .lb-podium-avatar,
+.lb-podium-step.rank-3 .lb-podium-avatar {
+  width: 75px;
+  height: 75px;
+  font-size: 1.6rem;
+}
+
+.lb-podium-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* The Vertical Pedestal Bar itself */
+.lb-podium-pedestal {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 25px; /* Space for the overlapping avatar */
+  background: linear-gradient(180deg, #383848 0%, #20202d 30%, #151520 100%);
+  border-radius: 16px 16px 10px 10px;
+  box-shadow: inset 0 5px 15px rgba(255,255,255,0.05), 0 -5px 20px rgba(0,0,0,0.5);
+}
+
+/* Adjust pedestal heights based on rank */
+.lb-podium-step.rank-1 .lb-podium-pedestal { height: 130px; }
+.lb-podium-step.rank-2 .lb-podium-pedestal { height: 100px; }
+.lb-podium-step.rank-3 .lb-podium-pedestal { height: 85px; }
+
+/* "You" Highlight on Pedestal */
+.lb-podium-step.is-me .lb-podium-pedestal {
+  background: linear-gradient(180deg, rgba(108, 92, 231, 0.4) 0%, rgba(108, 92, 231, 0.1) 100%);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  border-bottom: none;
+}
+
+/* Text inside pedestal */
+.lb-podium-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+}
+
+.lb-podium-rating {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+
+/* ── Divider ── */
+.lb-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 8px 0 16px 0;
+}
+
+
+/* ============================================
+   THE LIST UI (RANK 4+) 
+   ============================================ */
+.lb-col-labels {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px 10px 14px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.lb-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lb-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.lb-bar-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-light);
+}
+
+.lb-bar-row.is-me {
+  background: rgba(108, 92, 231, 0.1);
+  border-color: rgba(108, 92, 231, 0.4);
+}
+
+.lb-bar-row.is-me::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%; width: 3px;
+  background: var(--primary-color);
+}
+
+.lb-bar-rank {
+  min-width: 42px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.lb-bar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.lb-bar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color), #a29bfe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.lb-bar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.lb-bar-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lb-bar-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.lb-bar-handle {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.lb-you-badge {
+  display: inline-block;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.4px;
+}
+
+.lb-bar-track {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  height: 9px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.lb-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease, background-color 0.4s ease;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.lb-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  animation: lbShimmer 2.4s infinite;
+}
+
+@keyframes lbShimmer {
+  0%   { left: -60%; }
+  100% { left: 120%;  }
+}
+
+.lb-bar-fill.platform-leetcode   { background: linear-gradient(90deg, #FFA116, #ffca62); }
+.lb-bar-fill.platform-codeforces { background: linear-gradient(90deg, #1890FF, #69c0ff); }
+.lb-bar-fill.platform-hackerrank { background: linear-gradient(90deg, #00EA64, #57ffaa); }
+.lb-bar-fill.platform-codechef   { background: linear-gradient(90deg, #5B4638, #9b7b69); }
+
+.lb-bar-rating {
+  min-width: 60px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.92rem;
+  flex-shrink: 0;
+}
+
+.lb-bar-rating.platform-leetcode   { color: #FFA116; }
+.lb-bar-rating.platform-codeforces { color: #1890FF; }
+.lb-bar-rating.platform-hackerrank { color: #00EA64; }
+.lb-bar-rating.platform-codechef   { color: #9b7b69; }
+
+/* ── Skeletons & Empty State ── */
+.lb-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+}
+
+.lb-skeleton-circle {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  animation: lbPulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.lb-skeleton-block {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.07);
+  animation: lbPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes lbPulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.9;  }
+}
+
+.lb-empty {
+  text-align: center;
+  padding: 44px 20px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lb-empty-icon { font-size: 2.4rem; opacity: 0.45; }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { interviewAPI } from '../services/api';
 import {
   HiOutlineMicrophone, HiOutlineStop, HiOutlinePlay, HiOutlineRefresh,
@@ -22,6 +23,9 @@ const InterviewCoach = () => {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [isSearchingP2P, setIsSearchingP2P] = useState(false);
+
+  const navigate = useNavigate();
 
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
@@ -209,6 +213,16 @@ const InterviewCoach = () => {
     synthRef.current.cancel();
   };
 
+  const findP2PPeer = () => {
+    setIsSearchingP2P(true);
+    // Simulate matchmaking delay
+    setTimeout(() => {
+      setIsSearchingP2P(false);
+      const randomRoomId = Math.random().toString(36).substring(2, 9);
+      navigate(`/interview/p2p/${randomRoomId}`);
+    }, 2500);
+  };
+
   const scoreColor = (s) => s >= 7 ? '#00b894' : s >= 5 ? '#fdcb6e' : '#ff6b6b';
 
   return (
@@ -237,8 +251,18 @@ const InterviewCoach = () => {
               <h3>Technical Round</h3>
               <p>DSA, System Design, CS fundamentals. Problem-solving and code quality evaluation.</p>
               <span className="itc-detail">~5 questions • 30 min</span>
-              <button className="btn btn-success" disabled={loading}>
+              <button className="btn btn-success" disabled={loading || isSearchingP2P}>
                 {loading && interviewType === 'technical' ? 'Starting...' : 'Start Technical Interview'}
+              </button>
+            </div>
+
+            <div className="glass-card interview-type-card" onClick={findP2PPeer} style={{ gridColumn: '1 / -1' }}>
+              <div className="itc-icon" style={{ background: 'linear-gradient(135deg, #e17055, #fab1a0)' }}>👥</div>
+              <h3>P2P Mock Interviews</h3>
+              <p>Practice with real peers! Match with another student for a 45-minute live pair-programming session.</p>
+              <span className="itc-detail">Live Editor + WebRTC • 45 min</span>
+              <button className="btn" style={{ background: '#e17055', color: '#fff' }} disabled={loading || isSearchingP2P}>
+                {isSearchingP2P ? 'Searching for peers...' : 'Find a Peer'}
               </button>
             </div>
           </div>

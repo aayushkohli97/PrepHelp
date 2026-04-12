@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import ResumeBuilder from './pages/ResumeBuilder';
 import StudyCompanion from './pages/StudyCompanion';
 import InterviewCoach from './pages/InterviewCoach';
+import P2PInterview from './pages/P2PInterview';
 import './styles/index.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -75,6 +76,11 @@ const AppRoutes = () => {
       <Route path="/interview" element={
         <ProtectedRoute>
           <AppLayout><InterviewCoach /></AppLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/interview/p2p/:roomId" element={
+        <ProtectedRoute>
+          <AppLayout><P2PInterview /></AppLayout>
         </ProtectedRoute>
       } />
 

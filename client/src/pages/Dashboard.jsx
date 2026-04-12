@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { profileAPI, authAPI } from '../services/api';
 import {
-  HiOutlineRefresh, HiOutlineLightningBolt, HiOutlineChartBar,
+  HiOutlineFire,HiOutlineRefresh, HiOutlineLightningBolt, HiOutlineChartBar,
   HiOutlineAcademicCap, HiOutlineTrendingUp, HiOutlinePlus,
   HiOutlinePencil, HiOutlineTrash, HiOutlineShieldCheck,
   HiOutlineX, HiOutlineExclamation, HiOutlineChevronDown
 } from 'react-icons/hi';
 import { SiLeetcode, SiCodechef, SiHackerrank, SiCodeforces } from 'react-icons/si';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import WagerDashboard from '../components/dashboard/WagerDashboard';
+import Leaderboard from '../components/dashboard/Leaderboard';
 import './Dashboard.css';
 
 const platformConfig = {
@@ -470,11 +472,19 @@ const Dashboard = () => {
       {/* ===== MAIN STATS AREA ===== */}
       {hasProfiles && (
         <>
-          <div className="tabs" style={{ marginTop: 24 }}>
+          <div className="tabs" style={{ marginTop: 24, marginBottom: 20 }}>
             <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
             <button className={`tab ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')}>Topics</button>
             <button className={`tab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>AI Insights</button>
+            <button className={`tab ${activeTab === 'wager' ? 'active' : ''}`} onClick={() => setActiveTab('wager')} style={{ color: '#f1c40f' }}>The Wager <HiOutlineFire style={{marginBottom: '-2px'}} /></button>
+            <button className={`tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>Leaderboard</button>
           </div>
+
+          {/* ===== THE WAGER TAB ===== */}
+          {activeTab === 'wager' && <WagerDashboard />}
+
+          {/* ===== LEADERBOARD TAB ===== */}
+          {activeTab === 'leaderboard' && <Leaderboard />}
 
           {/* ===== OVERVIEW TAB ===== */}
           {activeTab === 'overview' && (

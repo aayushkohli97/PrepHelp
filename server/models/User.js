@@ -26,11 +26,20 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   codingProfiles: {
-    leetcode: { type: String, default: '' },
-    codechef: { type: String, default: '' },
-    hackerrank: { type: String, default: '' },
-    codeforces: { type: String, default: '' }
+    leetcode:    { type: String, default: '' },
+    codechef:    { type: String, default: '' },
+    hackerrank:  { type: String, default: '' },
+    codeforces:  { type: String, default: '' }
   },
+
+  // ✅ NEW: Contest ratings per platform (used for leaderboard sorting)
+  contestRating: {
+    leetcode:   { type: Number, default: 0, min: 0 },
+    codeforces: { type: Number, default: 0, min: 0 },
+    codechef:   { type: Number, default: 0, min: 0 },
+    hackerrank: { type: Number, default: 0, min: 0 }
+  },
+
   placementScore: {
     type: Number,
     default: 0,
@@ -40,6 +49,15 @@ const userSchema = new mongoose.Schema({
   isPremium: {
     type: Boolean,
     default: false
+  },
+  prepCoins: {
+    type: Number,
+    default: 100,
+    min: 0
+  },
+  weeklyQuestionsSolved: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

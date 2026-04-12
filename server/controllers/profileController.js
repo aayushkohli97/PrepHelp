@@ -34,6 +34,7 @@ export const fetchAllProfiles = async (req, res) => {
       if (!scraper) { errors[platform] = 'Unsupported platform'; continue; }
 
       const stats = await scraper(username.trim());
+
       const profile = await CodingProfile.findOneAndUpdate(
         { userId, platform },
         {
@@ -50,6 +51,14 @@ export const fetchAllProfiles = async (req, res) => {
         },
         { upsert: true, new: true }
       );
+
+      // ✅ FIX: Save contestRating to User model for leaderboard sorting
+      if (stats.contestRating) {
+        await User.findByIdAndUpdate(userId, {
+          [`contestRating.${platform}`]: stats.contestRating
+        });
+      }
+
       results[platform] = profile;
     } catch (error) {
       errors[platform] = error.message;
@@ -62,6 +71,7 @@ export const fetchAllProfiles = async (req, res) => {
 export const fetchSingleProfile = async (req, res) => {
   const { platform, username } = req.body;
   const userId = req.user._id;
+
   if (!platform || !username) {
     return res.status(400).json({ message: 'Platform and username required' });
   }
@@ -69,7 +79,9 @@ export const fetchSingleProfile = async (req, res) => {
   if (!scraper) {
     return res.status(400).json({ message: 'Unsupported platform' });
   }
+
   const stats = await scraper(username.trim());
+
   const profile = await CodingProfile.findOneAndUpdate(
     { userId, platform },
     {
@@ -86,7 +98,15 @@ export const fetchSingleProfile = async (req, res) => {
     },
     { upsert: true, new: true }
   );
-  await User.findByIdAndUpdate(userId, { [`codingProfiles.${platform}`]: username.trim() });
+
+  // ✅ FIX: Save contestRating + username to User model for leaderboard sorting
+  await User.findByIdAndUpdate(userId, {
+    [`codingProfiles.${platform}`]: username.trim(),
+    ...(stats.contestRating && {
+      [`contestRating.${platform}`]: stats.contestRating
+    })
+  });
+
   res.json(profile);
 };
 
@@ -97,17 +117,18 @@ export const removeProfile = async (req, res) => {
   if (!platform || !password) {
     return res.status(400).json({ message: 'Platform and password are required' });
   }
-  // Verify password
   const user = await User.findById(userId).select('+password');
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
     return res.status(401).json({ message: 'Incorrect password' });
   }
-  // Delete coding profile doc
   await CodingProfile.findOneAndDelete({ userId, platform });
-  // Clear from user record
+
+  // ✅ FIX: Also clear contestRating from User model on profile remove
   user.codingProfiles[platform] = '';
+  user.contestRating[platform]  = 0;
   await user.save();
+
   res.json({ message: `${platform} profile removed successfully` });
 };
 
@@ -121,13 +142,13 @@ export const verifyPassword = async (req, res) => {
   res.json({ verified: true });
 };
 
-// @route GET /api/profile/stats
+// @route GET /api/profile/stats — UNTOUCHED
 export const getProfileStats = async (req, res) => {
   const profiles = await CodingProfile.find({ userId: req.user._id });
   res.json(profiles);
 };
 
-// @route GET /api/profile/analysis
+// @route GET /api/profile/analysis — UNTOUCHED
 export const getProfileAnalysis = async (req, res) => {
   const profiles = await CodingProfile.find({ userId: req.user._id });
   if (!profiles.length) {

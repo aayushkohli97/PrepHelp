@@ -78,4 +78,22 @@ export const interviewAPI = {
   getReport: (id) => API.get(`/interview/report/${id}`)
 };
 
+// Wager API
+export const wagerAPI = {
+  create: (data) => API.post('/wager/create', data),
+  getActive: () => API.get('/wager/active'),
+  resolve: (id, completedQuestions) => API.post(`/wager/resolve/${id}`, { completedQuestions }),
+  getHistory: () => API.get('/wager/history')
+};
+
+// Leaderboard API
+export const leaderboardAPI = {
+  // ✅ UPDATED: platform param added (default: 'leetcode')
+  getGlobal: (platform = 'leetcode') => API.get('/leaderboard/global', { params: { platform } }),
+  getRivals: (platform = 'leetcode') => API.get('/leaderboard/rivals', { params: { platform } }),
+  // ✅ UNTOUCHED
+  addRival:    (handle) => API.post('/leaderboard/rival', { handle }),
+  removeRival: (id)     => API.delete(`/leaderboard/rival/${id}`)
+};
+
 export default API;
