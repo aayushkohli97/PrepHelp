@@ -411,7 +411,7 @@
 
 .platform-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-lg);
 }
 
@@ -487,9 +487,13 @@
   color: var(--text-muted);
 }
 
-/* Charts */
+/* Charts — DO NOT use overflow-x:auto here, it causes an infinite
+   resize loop with Recharts ResponsiveContainer (scrollbar appears →
+   width shrinks → chart re-renders → scrollbar disappears → repeat). */
 .chart-container {
   width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
 .chart-legend {
@@ -728,9 +732,22 @@
   .apf-row { flex-direction: column; }
   .connected-profile-card { flex-wrap: wrap; gap: var(--space-sm); }
   .cp-stats-mini { display: none; }
+  .platform-cards-grid { grid-template-columns: 1fr; }
+  /* Tabs scroll horizontally instead of overflowing */
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; }
 }
 
 @media (max-width: 480px) {
   .plan-grid { grid-template-columns: 1fr; }
   .fab-score-btn { right: 16px; bottom: 16px; padding: 12px 18px; font-size: 0.85rem; }
+  .stat-big-number { font-size: 2.2rem; }
+  .profile-section { padding: var(--space-md); }
 }

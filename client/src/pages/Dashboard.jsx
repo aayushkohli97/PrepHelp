@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { profileAPI, authAPI } from '../services/api';
+import { profileAPI } from '../services/api';
 import {
   HiOutlineFire,HiOutlineRefresh, HiOutlineLightningBolt, HiOutlineChartBar,
   HiOutlineAcademicCap, HiOutlineTrendingUp, HiOutlinePlus,
@@ -9,8 +9,8 @@ import {
 } from 'react-icons/hi';
 import { SiLeetcode, SiCodechef, SiHackerrank, SiCodeforces } from 'react-icons/si';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import WagerDashboard from '../components/dashboard/WagerDashboard';
 import Leaderboard from '../components/dashboard/Leaderboard';
+import { useDataCache } from '../context/DataContext';
 import './Dashboard.css';
 
 const platformConfig = {
@@ -20,11 +20,43 @@ const platformConfig = {
   codeforces: { name: 'Codeforces', icon: SiCodeforces, color: '#1890FF' }
 };
 
+const topicDifficultyMap = {
+  // Hard (Red)
+  'Dynamic Programming': 'hard', 'Graph': 'hard', 'Graphs': 'hard', 'Disjoint Set': 'hard', 'Segment Tree': 'hard',
+  'Bitmask': 'hard', 'Recursion': 'hard', 'Backtracking': 'hard', 'Trie': 'hard', 'Tries': 'hard', 'String Matching': 'hard',
+  'Topological Sort': 'hard', 'Shortest Path': 'hard', 'Minimum Spanning Tree': 'hard',
+  
+  // Medium (Orange)
+  'Tree': 'medium', 'Trees': 'medium', 'Binary Tree': 'medium', 'Linked List': 'medium', 'Sorting': 'medium',
+  'Searching': 'medium', 'Two Pointers': 'medium', 'Sliding Window': 'medium', 'Greedy': 'medium', 'Binary Search': 'medium',
+  'Heap (Priority Queue)': 'medium', 'Heap': 'medium', 'Stack': 'medium', 'Queue': 'medium', 'Hash Table': 'medium',
+  'Bit Manipulation': 'medium', 'Prefix Sum': 'medium', 'Union Find': 'medium', 'Recursion': 'medium', 'Divide and Conquer': 'medium',
+  
+  // Easy (Green)
+  'Array': 'easy', 'Arrays': 'easy', 'String': 'easy', 'Strings': 'easy', 'Math': 'easy', 'Basic Programming': 'easy',
+  'Implementation': 'easy', 'Simulation': 'easy', 'Counting': 'easy'
+};
+
+const getTopicColor = (topic) => {
+  const diff = topicDifficultyMap[topic] || 'easy';
+  if (diff === 'hard') return '#ff6b6b'; // Red
+  if (diff === 'medium') return '#fdcb6e'; // Orange/Yellow
+  return '#00b894'; // Green
+};
+
+const getTopicBadgeClass = (topic) => {
+  const diff = topicDifficultyMap[topic] || 'easy';
+  if (diff === 'hard') return 'badge-danger';
+  if (diff === 'medium') return 'badge-warning';
+  return 'badge-success';
+};
+
 const Dashboard = () => {
-  const { user, updateUser } = useAuth();
-  const [profiles, setProfiles] = useState([]);
-  const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { user, updateUser, profiles: ctxProfiles, profilesLoading, fetchProfiles, refreshProfiles } = useAuth();
+  const { analysisCache, setAnalysisCache } = useDataCache();
+  // Use context cache; fall back to empty array while loading
+  const profiles = ctxProfiles ?? [];
+  const [analysis, setAnalysis] = useState(analysisCache || null);
   const [analyzing, setAnalyzing] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState('overview');
@@ -38,7 +70,7 @@ const Dashboard = () => {
 
   // Password modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordAction, setPasswordAction] = useState(null); // { type: 'remove' | 'update', platform }
+  const [passwordAction, setPasswordAction] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -56,28 +88,27 @@ const Dashboard = () => {
   const [scoreData, setScoreData] = useState(null);
   const [scoreLoading, setScoreLoading] = useState(false);
 
-  // First-time setup check
+  // Derived state
   const hasProfiles = profiles.length > 0;
   const connectedPlatforms = profiles.map(p => p.platform);
   const availablePlatforms = Object.keys(platformConfig).filter(k => !connectedPlatforms.includes(k));
 
+  // Fetch only if not already cached
   useEffect(() => {
-    loadProfiles();
+    fetchProfiles();
   }, []);
 
-  const loadProfiles = async () => {
-    try {
-      const res = await profileAPI.getStats();
-      setProfiles(res.data);
-    } catch (err) { /* No profiles yet */ }
-  };
+  // Sync analysis to cache
+  useEffect(() => {
+    setAnalysisCache(analysis);
+  }, [analysis, setAnalysisCache]);
 
   // --- Sync individual profile ---
   const syncProfile = async (platform, username) => {
     setSyncingProfiles(prev => ({ ...prev, [platform]: true }));
     try {
       await profileAPI.fetchSingle(platform, username);
-      await loadProfiles();
+      await refreshProfiles(); // Force-refresh cache
     } catch (err) {
       console.error(`Failed to sync ${platform}:`, err);
     } finally {
@@ -92,7 +123,7 @@ const Dashboard = () => {
     setErrors({});
     try {
       await profileAPI.fetchSingle(selectedPlatform, newUsername.trim());
-      await loadProfiles();
+      await refreshProfiles(); // Force-refresh cache
       setShowAddProfile(false);
       setSelectedPlatform('');
       setNewUsername('');
@@ -132,12 +163,11 @@ const Dashboard = () => {
     try {
       if (passwordAction.type === 'remove') {
         await profileAPI.removeProfile(passwordAction.platform, passwordInput);
-        await loadProfiles();
+        await refreshProfiles(); // Force-refresh cache
         setShowPasswordModal(false);
       } else if (passwordAction.type === 'update') {
         await profileAPI.verifyPassword(passwordInput);
         setShowPasswordModal(false);
-        // After verification, open the add profile form pre-filled for update
         setSelectedPlatform(passwordAction.platform);
         const existing = profiles.find(p => p.platform === passwordAction.platform);
         setNewUsername(existing?.username || '');
@@ -476,12 +506,8 @@ const Dashboard = () => {
             <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
             <button className={`tab ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')}>Topics</button>
             <button className={`tab ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>AI Insights</button>
-            <button className={`tab ${activeTab === 'wager' ? 'active' : ''}`} onClick={() => setActiveTab('wager')} style={{ color: '#f1c40f' }}>The Wager <HiOutlineFire style={{marginBottom: '-2px'}} /></button>
             <button className={`tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>Leaderboard</button>
           </div>
-
-          {/* ===== THE WAGER TAB ===== */}
-          {activeTab === 'wager' && <WagerDashboard />}
 
           {/* ===== LEADERBOARD TAB ===== */}
           {activeTab === 'leaderboard' && <Leaderboard />}
@@ -618,7 +644,7 @@ const Dashboard = () => {
                           <Tooltip contentStyle={tooltipStyle} />
                           <Bar dataKey="solved" radius={[6, 6, 0, 0]} barSize={24}>
                             {topTopics.map((t, i) => (
-                              <Cell key={i} fill={t.solved >= 20 ? '#00b894' : t.solved >= 5 ? '#fdcb6e' : '#ff6b6b'} />
+                              <Cell key={i} fill={getTopicColor(t.topic)} />
                             ))}
                           </Bar>
                         </BarChart>
@@ -626,7 +652,7 @@ const Dashboard = () => {
                     </div>
                     <div className="topic-pills">
                       {topTopics.map((t, i) => (
-                        <span key={i} className={`badge ${t.solved >= 20 ? 'badge-success' : t.solved >= 5 ? 'badge-warning' : 'badge-danger'}`}>
+                        <span key={i} className={`badge ${getTopicBadgeClass(t.topic)}`}>
                           {t.topic}: {t.solved}
                         </span>
                       ))}

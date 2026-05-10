@@ -368,6 +368,59 @@ Evaluate and return ONLY this JSON:
   });
 };
 
+// PrepTrack AI Evaluation — Brutal Coding Coach
+export const evaluatePrepTrack = async (tasks, type, betAmount) => {
+  return await executeWithFallback(async (dynamicAi) => {
+    const taskList = tasks.map((t, i) =>
+      `${i + 1}. [${t.isCompleted ? 'COMPLETED' : 'NOT DONE'}] ${t.description}${t.isRolledOver ? ' (ROLLED OVER from previous day)' : ''}`
+    ).join('\n');
+
+    const prompt = `You are a BRUTAL, no-nonsense coding coach. You have ZERO tolerance for laziness. You are evaluating a student's ${type} PrepTrack challenge.
+
+THE RULES:
+- The student bet ${betAmount} PrepCoins on completing these tasks.
+- You must evaluate HONESTLY and HARSHLY.
+
+TASKS:
+${taskList}
+
+EVALUATION INSTRUCTIONS:
+1. Calculate a "calculatedPercentage" (0-100) based on:
+   - Completed vs uncompleted tasks, BUT weighted by DIFFICULTY.
+   - Hard tasks (Codeforces contests, Dynamic Programming, System Design, competitive programming) are worth 3x.
+   - Medium tasks (LeetCode mediums, data structures, algorithms practice) are worth 2x.
+   - Easy/trivial tasks (watching a video, reading an article, doing 1 easy array problem) are worth 0.5x.
+   - If ALL tasks are trivially easy for a ${type} goal, PUNISH the score heavily (cap at 40%).
+   - Rolled-over tasks that are STILL not done should penalize EXTRA (-10% per rolled task).
+
+2. Generate a "roastMessage" that is:
+   - If score < 30%: ABSOLUTELY DESTROY them. Call them out for wasting time. Be savage but motivational.
+   - If score 30-60%: Be disappointed but give tough love. "You could've done better and you know it."
+   - If score 60-85%: Acknowledge effort but push harder. "Decent. But decent doesn't get you into Google."
+   - If score 85-99%: Respect the hustle. "Almost perfect. Warriors finish what they start."
+   - If score 100%: FULL SPARTAN PRAISE. "You absolute beast. This is what champions look like."
+   - If the tasks are embarrassingly easy for a ${type} goal (e.g., monthly goal = "solve 2 easy arrays"), ROAST THEM for setting pathetic goals. Something like "A monthly goal of 2 easy arrays? My grandmother could do that in her sleep."
+
+Return ONLY this JSON (no markdown, no extra text):
+{
+  "calculatedPercentage": <number 0-100>,
+  "roastMessage": "<your brutal feedback message>"
+}`;
+
+    const response = await dynamicAi.models.generateContent({
+      model: geminiModel,
+      contents: prompt
+    });
+
+    const text = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { calculatedPercentage: 50, roastMessage: text };
+    }
+  });
+};
+
 // Generate Interview Report
 export const generateInterviewReport = async (session) => {
   return await executeWithFallback(async (dynamicAi) => {

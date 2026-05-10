@@ -32,7 +32,11 @@ export const authAPI = {
   register: (data) => API.post('/auth/register', data),
   login: (data) => API.post('/auth/login', data),
   getMe: () => API.get('/auth/me'),
-  updateProfile: (data) => API.put('/auth/profile', data)
+  updateProfile: (data) => API.put('/auth/profile', data),
+  verifyEmail: (data) => API.post('/auth/verify-email', data),
+  resendOtp: (data) => API.post('/auth/resend-otp', data),
+  forgotPassword: (data) => API.post('/auth/forgot-password', data),
+  resetPassword: (data) => API.post('/auth/reset-password', data),
 };
 
 // Profile API
@@ -78,12 +82,16 @@ export const interviewAPI = {
   getReport: (id) => API.get(`/interview/report/${id}`)
 };
 
-// Wager API
-export const wagerAPI = {
-  create: (data) => API.post('/wager/create', data),
-  getActive: () => API.get('/wager/active'),
-  resolve: (id, completedQuestions) => API.post(`/wager/resolve/${id}`, { completedQuestions }),
-  getHistory: () => API.get('/wager/history')
+// PrepTrack API
+export const preptrackAPI = {
+  create: (data) => API.post('/preptrack/create', data),
+  lock: (id) => API.post(`/preptrack/lock/${id}`),
+  editDraft: (id, data) => API.put(`/preptrack/edit/${id}`, data),
+  toggleTask: (trackId, taskId) => API.put(`/preptrack/toggle-task/${trackId}/${taskId}`),
+  evaluate: (id, data) => API.post(`/preptrack/evaluate/${id}`, data),
+  getActive: () => API.get('/preptrack/active'),
+  getHistory: () => API.get('/preptrack/history'),
+  deleteDraft: (id) => API.delete(`/preptrack/${id}`)
 };
 
 // Leaderboard API

@@ -20,7 +20,8 @@ const Register = () => {
     setError('');
     try {
       await register(name, email, password);
-      navigate('/dashboard');
+      // Redirect to email verification instead of dashboard
+      navigate('/verify-email');
     } catch (err) {
       setError(err.message);
     } finally {

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { HiOutlineUserAdd, HiOutlineSearch, HiOutlineGlobe, HiOutlineUsers } from 'react-icons/hi';
 import { HiOutlineTrophy } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
+import { useDataCache } from '../../context/DataContext';
 import './Leaderboard.css';
 
 const PLATFORMS = [
@@ -138,10 +139,18 @@ const Leaderboard = () => {
   const [loading,         setLoading]         = useState(false);
   const [searchHandle,    setSearchHandle]    = useState('');
   const [searchLoading,   setSearchLoading]   = useState(false);
+  const { leaderboardCache, setLeaderboardCache } = useDataCache();
 
   useEffect(() => { fetchLeaderboard(); }, [view, platform]);
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = async (force = false) => {
+    const cacheKey = `${view}-${platform}`;
+    if (!force && leaderboardCache[cacheKey]) {
+      setLeaderboardData(leaderboardCache[cacheKey].users);
+      setMaxRating(leaderboardCache[cacheKey].maxRating);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = view === 'global'
@@ -156,6 +165,16 @@ const Leaderboard = () => {
     }
   };
 
+  useEffect(() => {
+    if (!loading && leaderboardData.length > 0) {
+      const cacheKey = `${view}-${platform}`;
+      setLeaderboardCache(prev => ({
+        ...prev,
+        [cacheKey]: { users: leaderboardData, maxRating }
+      }));
+    }
+  }, [leaderboardData, maxRating, loading, view, platform, setLeaderboardCache]);
+
   const handleAddRival = async (e) => {
     e.preventDefault();
     if (!searchHandle.trim()) return;
@@ -164,7 +183,17 @@ const Leaderboard = () => {
       await leaderboardAPI.addRival(searchHandle.trim());
       toast.success(`Successfully added ${searchHandle} to rivals!`);
       setSearchHandle('');
-      if (view === 'rivals') fetchLeaderboard();
+      
+      // Invalidate rivals cache
+      setLeaderboardCache(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(k => {
+          if (k.startsWith('rivals-')) delete next[k];
+        });
+        return next;
+      });
+
+      if (view === 'rivals') fetchLeaderboard(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add rival.');
     } finally {

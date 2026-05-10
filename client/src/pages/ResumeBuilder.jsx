@@ -12,6 +12,7 @@ import {
   generateTemplateFour,
   generateTemplateFive
 } from '../utils/resumeTemplates';
+import { useDataCache } from '../context/DataContext';
 import './ResumeBuilder.css';
 
 const emptyResumeData = {
@@ -61,13 +62,18 @@ export default function ResumeBuilder() {
   const debounceTimer = useRef(null);
   const prevBlobUrl = useRef('');
   const dropdownRef = useRef(null);
+  const { resumeCache, setResumeCache } = useDataCache();
 
   // --- Fetch saved resumes on mount ---
   useEffect(() => {
     fetchSavedResumes();
   }, []);
 
-  const fetchSavedResumes = async () => {
+  const fetchSavedResumes = async (force = false) => {
+    if (!force && resumeCache) {
+      setSavedResumes(resumeCache);
+      return;
+    }
     try {
       setLoadingResumes(true);
       const res = await resumeAPI.getList();
@@ -78,6 +84,12 @@ export default function ResumeBuilder() {
       setLoadingResumes(false);
     }
   };
+
+  useEffect(() => {
+    if (!loadingResumes) {
+      setResumeCache(savedResumes);
+    }
+  }, [savedResumes, loadingResumes, setResumeCache]);
 
   // --- Close dropdown on outside click ---
   useEffect(() => {
@@ -223,7 +235,7 @@ export default function ResumeBuilder() {
       }
       toast.success(`Resume "${name}" saved successfully!`);
       setShowSaveModal(false);
-      fetchSavedResumes(); // refresh dropdown
+      fetchSavedResumes(true); // force refresh dropdown
     } catch (err) {
       console.error(err);
       toast.error('Failed to save resume. Please ensure you are logged in.');
@@ -261,7 +273,7 @@ export default function ResumeBuilder() {
         setResumeName('');
         setResumeData(emptyResumeData);
       }
-      fetchSavedResumes();
+      fetchSavedResumes(true); // force refresh
     } catch (err) {
       toast.error('Failed to delete resume');
     }

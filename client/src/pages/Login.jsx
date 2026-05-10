@@ -18,8 +18,13 @@ const Login = () => {
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const result = await login(email, password);
+      // If the account needs email verification, redirect to verify page
+      if (result?.needsVerification) {
+        navigate('/verify-email');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,7 +69,10 @@ const Login = () => {
           </div>
 
           <div className="input-group">
-            <label htmlFor="login-password">Password</label>
+            <div className="label-row">
+              <label htmlFor="login-password">Password</label>
+              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
+            </div>
             <div className="input-with-icon">
               <HiOutlineLockClosed />
               <input

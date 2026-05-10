@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { authAPI, profileAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -8,16 +8,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ---- Phase 3: Global profile/stats cache ----
+  const [profiles, setProfiles] = useState(null);       // null = not yet fetched
+  const [profilesLoading, setProfilesLoading] = useState(false);
+
   useEffect(() => {
     const token = sessionStorage.getItem('prephelp_token');
     const storedUser = sessionStorage.getItem('prephelp_user');
     if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-      // Verify token
+      const parsed = JSON.parse(storedUser);
+      setUser(parsed);
+      // Verify token is still valid
       authAPI.getMe()
         .then(res => {
-          setUser(res.data);
-          sessionStorage.setItem('prephelp_user', JSON.stringify(res.data));
+          const fresh = { ...res.data, token };
+          setUser(fresh);
+          sessionStorage.setItem('prephelp_user', JSON.stringify(fresh));
         })
         .catch(() => {
           logout();
@@ -28,11 +34,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Fetch profiles once when user is set and profiles haven't been loaded yet
+  useEffect(() => {
+    if (user && user.isEmailVerified && profiles === null && !profilesLoading) {
+      fetchProfiles();
+    }
+  }, [user]);
+
   const register = async (name, email, password) => {
     try {
       setError(null);
       const res = await authAPI.register({ name, email, password });
       const userData = res.data;
+      // Store token for verification requests, but mark as unverified
       sessionStorage.setItem('prephelp_token', userData.token);
       sessionStorage.setItem('prephelp_user', JSON.stringify(userData));
       setUser(userData);
@@ -54,6 +68,19 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return userData;
     } catch (err) {
+      // Handle 403 needsVerification
+      if (err.response?.status === 403 && err.response?.data?.needsVerification) {
+        const data = err.response.data;
+        // Store token so the verify page can make requests
+        sessionStorage.setItem('prephelp_token', data.token);
+        sessionStorage.setItem('prephelp_user', JSON.stringify({
+          email: data.email,
+          isEmailVerified: false,
+          token: data.token,
+        }));
+        setUser({ email: data.email, isEmailVerified: false, token: data.token });
+        return { needsVerification: true, email: data.email };
+      }
       const msg = err.response?.data?.message || 'Login failed';
       setError(msg);
       throw new Error(msg);
@@ -64,15 +91,52 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem('prephelp_token');
     sessionStorage.removeItem('prephelp_user');
     setUser(null);
+    setProfiles(null); // Clear cached profiles on logout
   };
 
   const updateUser = (newData) => {
-    setUser(prev => ({ ...prev, ...newData }));
-    sessionStorage.setItem('prephelp_user', JSON.stringify({ ...user, ...newData }));
+    setUser(prev => {
+      const updated = { ...prev, ...newData };
+      sessionStorage.setItem('prephelp_user', JSON.stringify(updated));
+      return updated;
+    });
   };
 
+  // ---- Phase 3: Profile data caching ----
+  const fetchProfiles = useCallback(async (force = false) => {
+    if (profiles !== null && !force) return profiles; // Cache hit
+    setProfilesLoading(true);
+    try {
+      const res = await profileAPI.getStats();
+      setProfiles(res.data);
+      return res.data;
+    } catch (err) {
+      setProfiles([]); // Set empty array so we don't keep retrying
+      return [];
+    } finally {
+      setProfilesLoading(false);
+    }
+  }, [profiles]);
+
+  const refreshProfiles = useCallback(async () => {
+    setProfilesLoading(true);
+    try {
+      const res = await profileAPI.getStats();
+      setProfiles(res.data);
+      return res.data;
+    } catch (err) {
+      return profiles || [];
+    } finally {
+      setProfilesLoading(false);
+    }
+  }, [profiles]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, error, register, login, logout, updateUser }}>
+    <AuthContext.Provider value={{
+      user, loading, error,
+      register, login, logout, updateUser,
+      profiles, profilesLoading, fetchProfiles, refreshProfiles, setProfiles,
+    }}>
       {children}
     </AuthContext.Provider>
   );

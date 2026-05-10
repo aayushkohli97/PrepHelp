@@ -7,7 +7,7 @@ import profileRoutes from './routes/profileRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import interviewRoutes from './routes/interviewRoutes.js';
-import wagerRoutes from './routes/wagerRoutes.js';
+import preptrackRoutes from './routes/preptrackRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -36,7 +36,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/interview', interviewRoutes);
-app.use('/api/wager', wagerRoutes);
+app.use('/api/preptrack', preptrackRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 
 // Health check

@@ -1,32 +1,34 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 import {
   HiOutlineViewGrid,
   HiOutlineDocumentText,
   HiOutlineChatAlt2,
   HiOutlineMicrophone,
-  HiOutlineLogout,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
-  HiOutlineSparkles
+  HiOutlineSparkles,
+  HiOutlineFire
 } from 'react-icons/hi';
-import { useState } from 'react';
 import './Sidebar.css';
 
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: HiOutlineViewGrid, description: 'Profile Analysis' },
+  { path: '/preptrack', label: 'PrepTrack', icon: HiOutlineFire, description: 'Gamified Goals' },
   { path: '/resume', label: 'Resume', icon: HiOutlineDocumentText, description: 'AI Optimizer' },
   { path: '/study', label: 'Study AI', icon: HiOutlineChatAlt2, description: 'Chat Companion' },
   { path: '/interview', label: 'Interview', icon: HiOutlineMicrophone, description: 'Voice Coach', premium: true }
 ];
 
-const Sidebar = () => {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
+  const handleNavClick = () => {
+    // On mobile, close sidebar when a link is clicked
+    if (window.innerWidth <= 768) {
+      setMobileOpen(false);
+    }
+  };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} id="sidebar">
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`} id="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <div className="logo-icon">
@@ -52,6 +54,7 @@ const Sidebar = () => {
               `sidebar-link ${isActive ? 'active' : ''} ${item.premium ? 'premium' : ''}`
             }
             title={collapsed ? item.label : ''}
+            onClick={handleNavClick}
           >
             <div className="sidebar-link-icon">
               <item.icon />
@@ -68,7 +71,6 @@ const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
-
     </aside>
   );
 };
