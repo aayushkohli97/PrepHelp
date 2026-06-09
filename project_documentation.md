@@ -21,7 +21,7 @@
 
 ## 2. Tech Stack
 
-### Backend (`/server`)
+### Backend (`/backend`)
 
 | Technology | Version | Purpose |
 |---|---|---|
@@ -36,7 +36,7 @@
 | **cheerio** | `cheerio@1.2.0` | HTML scraping for coding profiles that lack APIs |
 | **nodemon** | `nodemon@3.1.14` | Dev-only hot-reload server |
 
-### Frontend (`/client`)
+### Frontend (`/frontend`)
 
 | Technology | Version | Purpose |
 |---|---|---|
@@ -55,8 +55,8 @@
 
 | Config | Value | File |
 |---|---|---|
-| Provider | Google Gemini | `server/config/gemini.js` |
-| Model | `gemini-2.5-flash` | `server/config/gemini.js` |
+| Provider | Google Gemini | `backend/config/gemini.js` |
+| Model | `gemini-2.5-flash` | `backend/config/gemini.js` |
 | API Key | `process.env.GEMINI_API_KEY` | `.env` |
 
 ---
@@ -65,7 +65,7 @@
 
 ```
 PrepHelp/
-├── server/                         # Backend (Node.js + Express)
+├── backend/                         # Backend (Node.js + Express)
 │   ├── server.js                   # Entry point — Express app setup, middleware, routes
 │   ├── config/
 │   │   ├── db.js                   # MongoDB connection (mongoose.connect)
@@ -101,7 +101,7 @@ PrepHelp/
 │   │   └── interviewRoutes.js      # /api/interview/*
 │   └── uploads/                    # Stored uploaded PDF files (served statically)
 │
-├── client/                         # Frontend (Vite + React)
+├── frontend/                         # Frontend (Vite + React)
 │   ├── src/
 │   │   ├── App.jsx                 # Router setup, ProtectedRoute/PublicRoute wrappers, AppLayout
 │   │   ├── main.jsx                # React DOM render entry
@@ -320,7 +320,7 @@ const analyzeResume = async (force = false) => {
 
 ## 6. Gemini AI Integration Details
 
-All AI prompts live in `server/services/geminiService.js`. Each function:
+All AI prompts live in `backend/services/geminiService.js`. Each function:
 1. Constructs a detailed prompt with strict JSON output format
 2. Calls `ai.models.generateContent({ model: geminiModel, contents: prompt })`
 3. Strips markdown code fences from response: `.replace(/```json\n?/g, '').replace(/```\n?/g, '')`
@@ -439,12 +439,12 @@ GEMINI_API_KEY=<Google AI API key>
 
 ```bash
 # Terminal 1: Start backend
-cd server
+cd backend
 npm install
 npm run dev          # Starts nodemon on port 5000
 
 # Terminal 2: Start frontend
-cd client
+cd frontend
 npm install
 npm run dev          # Starts Vite on port 5173
 ```
