@@ -116,7 +116,7 @@ const BoardCard = ({ type, track, onToggleTask, onLockStart, onEvaluate, onCreat
   return (
     <div className={`board-card glass-card ${isActive ? 'board-active' : ''} ${isFinished ? 'board-evaluated' : ''}`}>
       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 500 }}>
-        {new Date(track.startTime || track.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+        {(isDraft ? new Date() : new Date(track.startTime || track.createdAt || new Date())).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
       </div>
       <div className="board-header">
         <div className="board-header-left">
@@ -385,6 +385,10 @@ const PrepTrackPage = () => {
   };
 
   const handleLockStart = async (trackId) => {
+    const trackToLock = tracks.find(t => t._id === trackId);
+    if (trackToLock && trackToLock.tasks.length === 0) {
+      return toast.error('Cannot lock a challenge with 0 tasks! Edit to add tasks.');
+    }
     try {
       const res = await preptrackAPI.lock(trackId);
       updateUser({ prepCoins: res.data.prepCoins });
@@ -497,7 +501,7 @@ const PrepTrackPage = () => {
       setNewTaskInput('');
     }
 
-    if (finalTasks.length === 0) return toast.error('Add at least one task!');
+    if (!editMode && finalTasks.length === 0) return toast.error('Add at least one task!');
 
     const config = BOARD_CONFIG[createType];
     if (createBet < config.betMin || createBet > config.betMax) {
@@ -546,6 +550,14 @@ const PrepTrackPage = () => {
   const allPastTracks = history.filter(t => t.type === activeTab); // history is naturally oldest to newest
   const config = BOARD_CONFIG[activeTab];
   const pastTracks = allPastTracks.slice(-config.maxPast);
+
+  const hasCompletedToday = activeTab === 'daily' && allPastTracks.some(t => {
+    const d = new Date(t.startTime || t.createdAt);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear();
+  });
 
   return (
     <div className="page" id="preptrack-page">
@@ -637,15 +649,25 @@ const PrepTrackPage = () => {
           />
         ))}
         
-        <BoardCard
-          type={activeTab}
-          track={currentTrack}
-          onToggleTask={handleToggleTask}
-          onLockStart={handleLockStart}
-          onEvaluate={initEvaluate}
-          onCreateNew={openCreateModal}
-          onEditDraft={openEditModal}
-        />
+        {!currentTrack && hasCompletedToday ? (
+          <div className="board-card glass-card empty-card" style={{ justifyContent: 'center' }}>
+             <div className="board-empty-state">
+               <HiOutlineCheck style={{ fontSize: '3rem', color: 'var(--accent-success)', marginBottom: '1rem' }} />
+               <p style={{ textAlign: 'center', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>You have completed your daily track for today.</p>
+               <p style={{ textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Come back tomorrow!</p>
+             </div>
+          </div>
+        ) : (
+          <BoardCard
+            type={activeTab}
+            track={currentTrack}
+            onToggleTask={handleToggleTask}
+            onLockStart={handleLockStart}
+            onEvaluate={initEvaluate}
+            onCreateNew={openCreateModal}
+            onEditDraft={openEditModal}
+          />
+        )}
       </div>
 
 
@@ -714,7 +736,7 @@ const PrepTrackPage = () => {
 
             <div className="modal-actions-row">
               <button className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Cancel</button>
-              <button className="btn btn-success" onClick={handleCreate} disabled={createLoading || createTasks.length === 0}>
+              <button className="btn btn-success" onClick={handleCreate} disabled={createLoading || (!editMode && createTasks.length === 0 && !newTaskInput.trim())}>
                 {createLoading ? <><span className="loader" style={{ width: 14, height: 14, borderWidth: 2 }}></span> {editMode ? 'Saving...' : 'Creating...'}</> : <><HiOutlineCheck /> {editMode ? 'Save Changes' : 'Create Challenge'}</>}
               </button>
             </div>

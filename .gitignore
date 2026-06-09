@@ -1,3 +1,14 @@
+# dependencies
+node_modules/
+npm-debug.log*
+
+# production
+build/
+dist/
+
+# env files
 .env
 .env.*
-node_modules/
+
+# OS files
+.DS_Store

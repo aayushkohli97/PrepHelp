@@ -85,6 +85,7 @@ export const lockAndStart = async (req, res, next) => {
     if (!track) return res.status(404).json({ message: 'PrepTrack not found.' });
     if (String(track.userId) !== req.user.id) return res.status(403).json({ message: 'Not authorized.' });
     if (track.status !== 'draft') return res.status(400).json({ message: 'This track is already locked/started.' });
+    if (track.tasks.length === 0) return res.status(400).json({ message: 'Cannot lock a challenge with 0 tasks.' });
 
     const user = await User.findById(req.user.id);
     if ((user.prepCoins || 0) < track.betAmount) {
@@ -127,8 +128,8 @@ export const editDraft = async (req, res, next) => {
 
     // Update tasks if provided
     if (tasks !== undefined) {
-      if (!Array.isArray(tasks) || tasks.length === 0) {
-        return res.status(400).json({ message: 'At least one task is required.' });
+      if (!Array.isArray(tasks)) {
+        return res.status(400).json({ message: 'Tasks must be an array.' });
       }
       track.tasks = tasks.map(t => ({
         description: typeof t === 'string' ? t : t.description,
