@@ -1,122 +1,84 @@
-import nodemailer from 'nodemailer';
-
 const APP_NAME = 'PrepHelp';
-
-/**
- * Create a fresh transporter on each call so it always reads
- * the latest process.env values (avoids dotenv race condition).
- */
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // 465 ke liye strictly true
-    auth: {
-      user: 'aayushkohli3004@gmail.com', // Apna asli email daal yahan
-      pass: 'wquocskhzogeknum', // Apna 16 digit password daal
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    family: 4, // IPv4 force
-  });
-};
-
-/**
- * When using Gmail SMTP, the FROM address MUST be the Gmail account itself.
- * Using a custom domain (noreply@prephelp.com) causes Gmail to reject it.
- */
-const getFromAddress = () => {
-  return `"${APP_NAME}" <${process.env.SMTP_USER}>`;
-};
-
-/**
- * Build a styled HTML email body
- */
-const buildEmailHTML = (title, bodyContent) => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body { margin: 0; padding: 0; background: #0a0a0f; font-family: Arial, sans-serif; }
-    .container { max-width: 480px; margin: 40px auto; background: #12121a; border-radius: 16px; border: 1px solid rgba(108,92,231,0.2); overflow: hidden; }
-    .header { background: linear-gradient(135deg, #6c5ce7, #a29bfe); padding: 32px 24px; text-align: center; }
-    .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 800; }
-    .body { padding: 32px 24px; }
-    .body p { color: #a0a0b8; font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
-    .otp-box { background: #1a1a2e; border: 1px solid rgba(108,92,231,0.3); border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
-    .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #a29bfe; font-family: monospace; }
-    .footer { padding: 16px 24px; border-top: 1px solid rgba(108,92,231,0.15); text-align: center; }
-    .footer p { color: #6c6c80; font-size: 12px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>✨ ${APP_NAME}</h1>
-    </div>
-    <div class="body">
-      <h2 style="color:#e8e8f0; margin:0 0 16px; font-size:20px;">${title}</h2>
-      ${bodyContent}
-    </div>
-    <div class="footer">
-      <p>This is an automated email from ${APP_NAME}. Please do not reply.</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
 
 /**
  * Send email verification OTP after signup
  */
-export const sendVerificationEmail = async (to, otp) => {
-  const body = `
-    <p>Welcome to ${APP_NAME}! Please verify your email address to get started.</p>
-    <p>Use the following 6-digit code to verify your account:</p>
-    <div class="otp-box">
-      <div class="otp-code">${otp}</div>
-    </div>
-    <p>This code expires in <strong>10 minutes</strong>.</p>
-    <p>If you didn't create an account, you can safely ignore this email.</p>
-  `;
+export const sendVerificationEmail = async (userEmail, token) => {
+  // Fire and forget IIFE so it doesn't block the main thread/response
+  (async () => {
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { 
+            name: "PrepHelp", 
+            email: "aayushkohli3004@gmail.com" // IMPORTANT: Replace this with the email verified in Brevo dashboard
+          },
+          to: [{ email: userEmail }],
+          subject: "Verify Your PrepHelp Account",
+          htmlContent: `<html><body>
+            <h2>Welcome to PrepHelp!</h2>
+            <p>Your verification code is: <strong>${token}</strong></p>
+          </body></html>`
+        })
+      });
 
-  const transporter = createTransporter();
-  await transporter.sendMail({
-    from: getFromAddress(), // Must match SMTP_USER for Gmail
-    to,
-    subject: `${APP_NAME} — Verify Your Email`,
-    html: buildEmailHTML('Verify Your Email', body),
-  });
-
-  console.log(`✅ Verification email sent to ${to}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData);
+      }
+      
+      console.log(`Verification email successfully sent via Brevo to ${userEmail}`);
+    } catch (error) {
+      console.error("Brevo Email API Error:", error);
+    }
+  })();
 };
 
 /**
  * Send password reset OTP
  */
-export const sendPasswordResetEmail = async (to, otp) => {
-  const body = `
-    <p>We received a request to reset your password.</p>
-    <p>Use the following 6-digit code to proceed:</p>
-    <div class="otp-box">
-      <div class="otp-code">${otp}</div>
-    </div>
-    <p>This code expires in <strong>10 minutes</strong>.</p>
-    <p>If you didn't request a password reset, please ignore this email — your password will remain unchanged.</p>
-  `;
+export const sendPasswordResetEmail = async (userEmail, token) => {
+  // Fire and forget IIFE so it doesn't block the main thread/response
+  (async () => {
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { 
+            name: "PrepHelp", 
+            email: "YOUR_VERIFIED_SENDER_EMAIL@gmail.com" // IMPORTANT: Replace this with the email verified in Brevo dashboard
+          },
+          to: [{ email: userEmail }],
+          subject: "PrepHelp - Password Reset Code",
+          htmlContent: `<html><body>
+            <h2>Reset Your Password</h2>
+            <p>Your password reset code is: <strong>${token}</strong></p>
+            <p>If you didn't request a password reset, please ignore this email.</p>
+          </body></html>`
+        })
+      });
 
-  const transporter = createTransporter();
-  await transporter.sendMail({
-    from: getFromAddress(), // Must match SMTP_USER for Gmail
-    to,
-    subject: `${APP_NAME} — Password Reset Code`,
-    html: buildEmailHTML('Reset Your Password', body),
-  });
-
-  console.log(`✅ Password reset email sent to ${to}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData);
+      }
+      
+      console.log(`Password reset email successfully sent via Brevo to ${userEmail}`);
+    } catch (error) {
+      console.error("Brevo Email API Error:", error);
+    }
+  })();
 };
 
 /**
