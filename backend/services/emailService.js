@@ -19,6 +19,8 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false,
     },
+    // Forces IPv4 to fix Render's ENETUNREACH IPv6 error
+    family: 4, 
   });
 };
 
