@@ -8,19 +8,17 @@ const APP_NAME = 'PrepHelp';
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_PORT === '465', // true only for port 465
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // 465 ke liye strictly true
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: 'aayushkohli3004@gmail.com', // Apna asli email daal yahan
+      pass: 'wquocskhzogeknum', // Apna 16 digit password daal
     },
-    // Helps with Gmail reliability
     tls: {
       rejectUnauthorized: false,
     },
-    // Forces IPv4 to fix Render's ENETUNREACH IPv6 error
-    family: 4, 
+    family: 4, // IPv4 force
   });
 };
 
