@@ -47,11 +47,9 @@ export const register = async (req, res) => {
   });
 
   // Send verification email (non-blocking — don't fail registration if email fails)
-  try {
-    await sendVerificationEmail(email, otp);
-  } catch (err) {
+  sendVerificationEmail(email, otp).catch((err) => {
     console.error('Failed to send verification email:', err.message);
-  }
+  });
 
   res.status(201).json({
     _id: user._id,
@@ -83,25 +81,13 @@ export const login = async (req, res) => {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
 
-  // If email is not verified, resend OTP and tell the client
+  // If email is not verified, tell the client (don't resend here to prevent timeout)
   if (!user.isEmailVerified) {
-    const otp = generateOTP();
-    const hashedOtp = await hashOTP(otp);
-    user.emailVerificationOTP = hashedOtp;
-    user.emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-    await user.save();
-
-    try {
-      await sendVerificationEmail(email, otp);
-    } catch (err) {
-      console.error('Failed to send verification email:', err.message);
-    }
-
     return res.status(403).json({
       needsVerification: true,
       email: user.email,
       token: generateToken(user._id),
-      message: 'Email not verified. A new OTP has been sent to your email.',
+      message: 'Please verify your email. If you need a new code, use the resend option.',
     });
   }
 
