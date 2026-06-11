@@ -133,7 +133,8 @@ export default function ResumeBuilder() {
     setPreviewError('');
     try {
       const token = sessionStorage.getItem('prephelp_token');
-      const res = await fetch('http://localhost:5000/api/resume/compile-latex', {
+      const baseUrl = import.meta.env.VITE_API_URL;
+      const res = await fetch(`${baseUrl}/resume/compile-latex`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,7 +144,11 @@ export default function ResumeBuilder() {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `Compilation failed (${res.status})`);
+        const errorMsg = errData.detail
+          ? `${errData.message}: ${errData.detail}`
+          : errData.message || `Compilation failed (${res.status})`;
+        console.error('Backend compilation error details:', errData);
+        throw new Error(errorMsg);
       }
       const blob = await res.blob();
       // Revoke previous Object URL to prevent memory leaks
@@ -156,7 +161,7 @@ export default function ResumeBuilder() {
     } catch (e) {
       console.error('Live Preview Compilation Error:', e);
       setPreviewError(e.message || 'Failed to compile PDF');
-      toast.error('PDF compilation failed. Check your resume data.');
+      toast.error(e.message || 'PDF compilation failed. Check your resume data.');
     } finally {
       setIsCompiling(false);
     }
@@ -293,7 +298,8 @@ export default function ResumeBuilder() {
         return;
       }
       const token = sessionStorage.getItem('prephelp_token');
-      const res = await fetch('http://localhost:5000/api/resume/compile-latex', {
+      const baseUrl = import.meta.env.VITE_API_URL;
+      const res = await fetch(`${baseUrl}/resume/compile-latex`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -301,7 +307,14 @@ export default function ResumeBuilder() {
         },
         body: JSON.stringify({ latex: latexString })
       });
-      if (!res.ok) throw new Error('Download Compilation Failed');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errorMsg = errData.detail
+          ? `${errData.message}: ${errData.detail}`
+          : errData.message || `Download compilation failed (${res.status})`;
+        console.error('Download compilation error details:', errData);
+        throw new Error(errorMsg);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -314,7 +327,7 @@ export default function ResumeBuilder() {
       toast.success('Resume downloaded!');
     } catch (e) {
       console.error('Download Compilation Error:', e);
-      toast.error('Failed to download resume. Please try again.');
+      toast.error(e.message || 'Failed to download resume. Please try again.');
     } finally {
       setDownloading(false);
     }
