@@ -5,7 +5,7 @@
 .resume-layout {
   display: flex;
   gap: var(--space-lg);
-  height: calc(100vh - var(--navbar-height) - 225px);
+  min-height: calc(100vh - var(--navbar-height) - 225px);
   transition: all 0.3s ease;
 }
 
@@ -22,7 +22,7 @@
 
 /* Templates hidden state enlarging */
 .resume-layout.templates-hidden {
-  height: calc(100vh - var(--navbar-height) - 80px);
+  min-height: calc(100vh - var(--navbar-height) - 80px);
 }
 
 /* ═══════════════════════════════════════════

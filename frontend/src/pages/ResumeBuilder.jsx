@@ -58,6 +58,7 @@ export default function ResumeBuilder() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [leftWidth, setLeftWidth] = useState(50);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
 
   const debounceTimer = useRef(null);
   const prevBlobUrl = useRef('');
@@ -67,6 +68,10 @@ export default function ResumeBuilder() {
   // --- Fetch saved resumes on mount ---
   useEffect(() => {
     fetchSavedResumes();
+
+    const handleResize = () => setIsMobileView(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const fetchSavedResumes = async (force = false) => {
@@ -361,7 +366,7 @@ export default function ResumeBuilder() {
   return (
     <div className="page resume-page">
       {/* ═══════ PAGE HEADER ═══════ */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header relative pt-4 md:pt-0" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1>Resume Builder</h1>
           <p>{resumeName ? `Editing: ${resumeName}` : 'Deterministic LaTeX Resume Generation'}</p>
@@ -464,9 +469,9 @@ export default function ResumeBuilder() {
       </div>
 
       {/* ═══════ MAIN SPLIT LAYOUT ═══════ */}
-      <div className={`resume-layout ${isFullscreen ? 'fullscreen-mode' : ''} ${!showTemplates ? 'templates-hidden' : ''} ${isResizing ? 'is-resizing' : ''}`}>
+      <div className={`resume-layout flex flex-col md:flex-row gap-6 ${isFullscreen ? 'fullscreen-mode' : ''} ${!showTemplates ? 'templates-hidden' : ''} ${isResizing ? 'is-resizing' : ''}`}>
         {/* Left Panel - Forms */}
-        <div className="resume-form-panel glass-card" id="resume-form-panel" style={{ flex: isFullscreen ? `0 0 ${leftWidth}%` : 1 }}>
+        <div className="resume-form-panel glass-card flex-1 w-full min-w-[100%] md:min-w-0 flex-shrink-0" id="resume-form-panel" style={{ flex: isFullscreen && !isMobileView ? `0 0 ${leftWidth}%` : 1 }}>
           <div className="section-nav" style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
             {['contact', 'summary', 'experience', 'education', 'projects', 'skills'].map(s => (
               <button key={s} className={`btn btn-sm ${activeSection === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveSection(s)}>
@@ -759,7 +764,7 @@ export default function ResumeBuilder() {
         )}
 
         {/* Right Panel - Live Preview */}
-        <div className="resume-preview-panel glass-card" id="resume-preview-panel">
+        <div className="resume-preview-panel glass-card flex-1 w-full min-w-[100%] md:min-w-0 flex-shrink-0" id="resume-preview-panel">
           <div className="preview-header">
             <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)' }}>Live Preview</h4>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -785,13 +790,24 @@ export default function ResumeBuilder() {
 
             {/* PDF Preview */}
             {pdfBlobUrl && !previewError ? (
-              <iframe
-                src={pdfBlobUrl}
-                title="Resume PDF Preview"
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                type="application/pdf"
-                id="pdf-preview-frame"
-              />
+              isMobileView ? (
+                <div className="mobile-pdf-preview-card" style={{ padding: '2rem', margin: '20px', textAlign: 'center', background: 'var(--surface-1)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', alignSelf: 'center', width: 'calc(100% - 40px)' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+                  <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)', fontSize: '1.2rem' }}>Your Resume is Ready!</h3>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem', lineHeight: '1.5' }}>Mobile browsers do not support inline PDF previews natively. Tap below to view your generated PDF in a new tab.</p>
+                  <button className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }} onClick={() => window.open(pdfBlobUrl, '_blank')}>
+                    View Generated Preview
+                  </button>
+                </div>
+              ) : (
+                <iframe
+                  src={pdfBlobUrl}
+                  title="Resume PDF Preview"
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  type="application/pdf"
+                  id="pdf-preview-frame"
+                />
+              )
             ) : previewError ? (
               <div className="preview-error-state">
                 <div className="preview-error-icon">⚠️</div>
