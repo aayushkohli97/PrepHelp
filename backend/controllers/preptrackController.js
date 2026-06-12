@@ -223,6 +223,7 @@ export const evaluateTrack = async (req, res, next) => {
     track.earnedCoins = earnedCoins;
     track.aiFeedback = `You completed ${completedCount} out of ${totalCount} tasks.`;
     track.status = calculatedPercentage >= 100 ? 'evaluated' : 'failed';
+    track.submittedAt = new Date();
 
     const { rolloverTaskIds = [] } = req.body || {};
 
@@ -246,12 +247,17 @@ export const evaluateTrack = async (req, res, next) => {
 
       if (undoneTasksToRollover.length > 0) {
         // Create a draft daily track with the rolled-over tasks
+        const submittedDate = new Date(track.startTime || track.createdAt || new Date());
+        const nextDayDate = new Date(submittedDate);
+        nextDayDate.setDate(submittedDate.getDate() + 1);
+
         rolloverTrack = await PrepTrack.create({
           userId: req.user.id,
           type: 'daily', // rollover is always to a daily track
           tasks: undoneTasksToRollover,
           betAmount: BET_LIMITS.daily.min,
-          status: 'draft'
+          status: 'draft',
+          createdAt: nextDayDate
         });
       }
     }

@@ -48,6 +48,10 @@ const prepTrackSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  submittedAt: {
+    type: Date,
+    default: null
+  },
   status: {
     type: String,
     enum: ['draft', 'active', 'evaluated', 'failed'],

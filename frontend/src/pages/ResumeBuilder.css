@@ -5,7 +5,8 @@
 .resume-layout {
   display: flex;
   gap: var(--space-lg);
-  min-height: calc(100vh - var(--navbar-height) - 225px);
+  min-height: calc(100vh - var(--navbar-height) - 160px);
+  height: calc(100vh - var(--navbar-height) - 160px);
   transition: all 0.3s ease;
 }
 
@@ -22,7 +23,7 @@
 
 /* Templates hidden state enlarging */
 .resume-layout.templates-hidden {
-  min-height: calc(100vh - var(--navbar-height) - 80px);
+  height: calc(100vh - var(--navbar-height) - 80px);
 }
 
 /* ═══════════════════════════════════════════
@@ -229,6 +230,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* Compiling overlay */
@@ -521,10 +523,19 @@
   .resume-layout {
     flex-direction: column;
     height: auto;
+    min-height: auto;
+  }
+
+  .resume-form-panel {
+    min-height: 500px;
+    max-height: 60vh;
+    overflow-y: auto;
+    flex: none;
   }
 
   .resume-preview-panel {
     min-height: 600px;
+    flex: none;
   }
 
   .template-selector-scroll {
@@ -556,5 +567,10 @@
 
   .resume-dropdown {
     width: 280px;
+  }
+
+  .resume-form-panel {
+    min-height: 400px;
+    max-height: 50vh;
   }
 }

@@ -64,6 +64,40 @@ const useCountdown = (endTime) => {
   return { timeLeft, isExpired };
 };
 
+// ========================= COOLDOWN HOOK =========================
+const useCooldownTimer = (submittedAt) => {
+  const [cooldownTimeLeft, setCooldownTimeLeft] = useState('');
+  const [isCooldownActive, setIsCooldownActive] = useState(false);
+
+  useEffect(() => {
+    if (!submittedAt) { setIsCooldownActive(false); return; }
+
+    const tick = () => {
+      const lastSubmission = new Date(submittedAt).getTime();
+      const now = Date.now();
+      const timePassed = now - lastSubmission;
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+
+      if (timePassed < twentyFourHours) {
+        setIsCooldownActive(true);
+        const msLeft = twentyFourHours - timePassed;
+        const h = Math.floor(msLeft / (1000 * 60 * 60));
+        const m = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+        setCooldownTimeLeft(`${h}h ${m}m`);
+      } else {
+        setIsCooldownActive(false);
+        setCooldownTimeLeft('');
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 60000); // update every minute
+    return () => clearInterval(interval);
+  }, [submittedAt]);
+
+  return { cooldownTimeLeft, isCooldownActive };
+};
+
 // ========================= CUSTOM TOOLTIP =========================
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length || payload[0].value == null) return null;
@@ -76,9 +110,10 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // ========================= BOARD CARD =========================
-const BoardCard = ({ type, track, onToggleTask, onLockStart, onEvaluate, onCreateNew, onEditDraft }) => {
+const BoardCard = ({ type, track, onToggleTask, onLockStart, onEvaluate, onCreateNew, onEditDraft, lastSubmittedAt }) => {
   const config = BOARD_CONFIG[type];
   const { timeLeft, isExpired } = useCountdown(track?.endTime);
+  const { cooldownTimeLeft, isCooldownActive } = useCooldownTimer(type === 'daily' && track?.status === 'draft' ? lastSubmittedAt : null);
 
   // No track for this type
   if (!track) {
@@ -238,16 +273,27 @@ const BoardCard = ({ type, track, onToggleTask, onLockStart, onEvaluate, onCreat
         )}
       </div>
 
-      {/* Footer actions */}
       <div className="board-footer">
         {isDraft && (
           <>
             <button className="btn btn-secondary" onClick={() => onEditDraft(track)}>
               <HiOutlinePencil /> Edit
             </button>
-            <button className="btn btn-success" onClick={() => onLockStart(track._id)}>
-              <HiOutlineFire /> Lock & Start
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <button 
+                className="btn btn-success" 
+                onClick={() => onLockStart(track._id)}
+                disabled={isCooldownActive}
+                style={{ opacity: isCooldownActive ? 0.6 : 1, cursor: isCooldownActive ? 'not-allowed' : 'pointer' }}
+              >
+                <HiOutlineFire /> Lock & Start
+              </button>
+              {isCooldownActive && (
+                <div style={{ fontSize: '0.75rem', color: '#ff6b6b', marginTop: '4px', fontWeight: '500' }}>
+                  Available in {cooldownTimeLeft}
+                </div>
+              )}
+            </div>
           </>
         )}
         {isActive && (
@@ -550,6 +596,8 @@ const PrepTrackPage = () => {
   const allPastTracks = history.filter(t => t.type === activeTab); // history is naturally oldest to newest
   const config = BOARD_CONFIG[activeTab];
   const pastTracks = allPastTracks.slice(-config.maxPast);
+  const latestPastBoard = allPastTracks[allPastTracks.length - 1];
+  const lastSubmittedAt = latestPastBoard?.submittedAt;
 
   const hasCompletedToday = activeTab === 'daily' && allPastTracks.some(t => {
     const d = new Date(t.startTime || t.createdAt);
@@ -646,6 +694,7 @@ const PrepTrackPage = () => {
             onEvaluate={initEvaluate}
             onCreateNew={openCreateModal}
             onEditDraft={openEditModal}
+            lastSubmittedAt={lastSubmittedAt}
           />
         ))}
         
@@ -666,6 +715,7 @@ const PrepTrackPage = () => {
             onEvaluate={initEvaluate}
             onCreateNew={openCreateModal}
             onEditDraft={openEditModal}
+            lastSubmittedAt={lastSubmittedAt}
           />
         )}
       </div>
