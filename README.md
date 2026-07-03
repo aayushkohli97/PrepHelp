@@ -10,14 +10,14 @@
 
 <p align="center">
   <strong>Stop coding randomly. Start preparing strategically.</strong><br/>
-  Analyze coding profiles, optimize resumes, study with AI, practice mock interviews, and track your prep — all powered by Google Gemini.
+  Analyze coding profiles, build professional resumes, study with AI, practice mock interviews, and track your prep — all powered by Google Gemini.
 </p>
 
 ---
 
 ## 🎯 What is PrepHelp?
 
-A full-stack platform for students targeting SDE roles at top tech companies. It aggregates coding profiles from 4 platforms, provides AI-driven resume optimization, a study chatbot, voice-based mock interviews, gamified goal tracking, and competitive leaderboards — all in one dashboard.
+A full-stack platform for students targeting SDE roles at top tech companies. It aggregates coding profiles from 4 platforms, provides a deterministic LaTeX resume builder, a study chatbot, voice-based mock interviews, gamified goal tracking, and competitive leaderboard.
 
 ---
 
@@ -48,7 +48,7 @@ A full-stack platform for students targeting SDE roles at top tech companies. It
 ### 🔥 PrepTrack — Gamified Goals
 - Create daily/weekly/monthly challenges and **bet PrepCoins**
 - Score < 50% = lose bet | Score 100% = earn **2x coins**
-- Task rollover for incomplete items | Progress history charts
+- Task rollover for incomplete items | Interactive graphs tracking consistency and challenge results
 
 ### 🏆 Rating Leaderboard
 - Global + Rivals leaderboard ranked by contest rating
@@ -128,7 +128,7 @@ VITE_API_URL=http://localhost:5000/api
 |---|---|---|
 | **Auth** | 8 routes | Register, Login, Verify Email (OTP), Forgot/Reset Password |
 | **Profiles** | 5 routes | Fetch/remove coding profiles, AI analysis |
-| **Resume** | 8 routes | Upload PDF, CRUD, AI analyze (cached), AI optimize |
+| **Resume** | 8 routes | Upload PDF, CRUD |
 | **Chat** | 3 routes | Send message, list/delete conversations |
 | **Interview** | 5 routes | Start, respond, end, history, report |
 | **PrepTrack** | 7 routes | Create, lock, edit, toggle task, evaluate, history |
@@ -158,7 +158,6 @@ VITE_API_URL=http://localhost:5000/api
 | **sessionStorage** | Tokens clear on tab close for security. |
 | **Multi-key Gemini rotation** | Prevents rate-limit failures. Round-robin across keys. |
 | **Nested try-catch for AI** | Gemini 503s don't crash the server. Partial data saved, user fills rest. |
-| **Analysis caching** | DB-cached results by default. Fresh AI call only on explicit re-analyze. |
 | **DataContext caching** | Prevents redundant API calls when switching tabs. Cache clears on logout. |
 
 ---
